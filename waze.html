@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>WAZE · Navegación y radares · VELOX Drive</title>
+<meta name="description" content="Navegación giro a giro con alertas de cámaras de velocidad, límite de vía y avisos por voz, optimizada para el navegador del Tesla Model Y.">
+<meta name="theme-color" content="#0b0f17">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+<link rel="stylesheet" href="css/waze.css">
+</head>
+<body>
+
+<!-- Mapa -->
+<div id="map"></div>
+<div id="wazeLive" hidden>
+  <iframe id="wazeFrame" title="Mapa en vivo de Waze" allow="geolocation" src="about:blank"></iframe>
+  <div class="live-badge">Waze Live · tráfico y reportes de la comunidad</div>
+</div>
+<div id="dangerGlow" aria-hidden="true"></div>
+
+<!-- Columna izquierda: búsqueda / maniobra + alerta -->
+<div class="left-col">
+  <div id="searchBox" class="panel search">
+    <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input id="q" type="search" placeholder="¿A dónde vamos?" autocomplete="off" enterkeyhint="search" aria-label="Buscar destino">
+    <button id="qClear" class="s-clear" aria-label="Borrar" hidden>✕</button>
+    <div id="results" class="results" hidden></div>
+  </div>
+
+  <div id="maneuver" class="panel maneuver" hidden>
+    <div class="m-ico" id="mIco"></div>
+    <div class="m-body">
+      <div class="m-dist" id="mDist">—</div>
+      <div class="m-text" id="mText">—</div>
+    </div>
+  </div>
+  <div id="thenRow" class="panel then" hidden><span>Luego</span><span id="thenIco" class="then-ico"></span><span id="thenTxt"></span></div>
+
+  <div id="alert" class="panel alert" hidden>
+    <div class="a-ico" id="aIco"></div>
+    <div class="a-body">
+      <div class="a-title" id="aTitle">Cámara de velocidad</div>
+      <div class="a-dist" id="aDist">— m</div>
+      <div class="a-bar"><div id="aBar"></div></div>
+    </div>
+    <div class="limit-sign" id="aLimit" hidden>60</div>
+  </div>
+</div>
+
+<!-- Botones superiores derechos -->
+<div class="top-right">
+  <a class="rbtn" href="index.html" id="homeBtn" aria-label="Inicio" title="Inicio">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
+  </a>
+  <button class="rbtn" id="fsBtn" aria-label="Pantalla completa" title="Pantalla completa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
+  <button class="rbtn" id="setBtn" aria-label="Ajustes" title="Ajustes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+  </button>
+</div>
+
+<!-- Controles del mapa (derecha) -->
+<div class="map-ctrls">
+  <button class="rbtn" id="zIn" aria-label="Acercar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+  <button class="rbtn" id="zOut" aria-label="Alejar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
+  </button>
+  <button class="rbtn" id="liveBtn" aria-label="Mapa Waze en vivo" title="Waze Live (tráfico)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg>
+  </button>
+  <button class="rbtn" id="camBtn" aria-label="Mostrar radares" title="Mostrar radares">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10l4-2v8l-4-2"/><circle cx="10" cy="12" r="2.4"/></svg>
+  </button>
+</div>
+
+<button id="recenter" class="recenter" hidden>
+  <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg> Recentrar
+</button>
+
+<!-- Velocímetro + límite -->
+<div class="speedo" id="speedo">
+  <div class="sp-circle" id="spCircle">
+    <div class="sp-val" id="spVal">0</div>
+    <div class="sp-unit" id="spUnit">km/h</div>
+  </div>
+  <div class="limit-sign road" id="roadLimit" hidden>—</div>
+  <div class="status" id="status"><span class="dot" id="stDot"></span><span id="stTxt">GPS sin iniciar</span></div>
+</div>
+
+<!-- Barra inferior de navegación -->
+<div id="etaBar" class="panel eta" hidden>
+  <button class="eta-x" id="navStop" aria-label="Terminar navegación">✕</button>
+  <div class="eta-main">
+    <div class="eta-time" id="etaTime">--:--</div>
+    <div class="eta-sub"><span id="etaRemain">— min</span> · <span id="etaDist">— km</span></div>
+  </div>
+  <div class="eta-cams" id="etaCams" title="Radares en la ruta">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10l4-2v8l-4-2"/></svg>
+    <span id="etaCamsN">0</span>
+  </div>
+</div>
+
+<!-- Vista previa de ruta -->
+<div id="preview" class="panel sheet preview" hidden>
+  <div class="pv-head">
+    <div>
+      <div class="pv-name" id="pvName">Destino</div>
+      <div class="pv-addr" id="pvAddr"></div>
+    </div>
+    <button class="sheet-x" id="pvClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="pv-stats">
+    <div><b id="pvTime">—</b><span>Duración</span></div>
+    <div><b id="pvDist">—</b><span>Distancia</span></div>
+    <div><b id="pvEta">—</b><span>Llegada</span></div>
+    <div><b id="pvCams">—</b><span>Radares</span></div>
+  </div>
+  <div class="pv-actions">
+    <button class="btn primary" id="pvGo">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg> Iniciar navegación
+    </button>
+    <a class="btn ghost" id="pvWaze" target="_blank" rel="noopener">Abrir en Waze.com</a>
+  </div>
+</div>
+
+<!-- Botón de reporte -->
+<button id="reportBtn" class="report-btn" aria-label="Reportar">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+</button>
+
+<div id="reportSheet" class="panel sheet report" hidden>
+  <div class="pv-head">
+    <div><div class="pv-name">Reportar</div><div class="pv-addr" id="rpWhere">En tu ubicación actual</div></div>
+    <button class="sheet-x" id="rpClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="rp-grid" id="rpGrid">
+    <button class="rp" data-type="speed"><span class="rp-ico t-speed"></span>Radar de velocidad</button>
+    <button class="rp" data-type="redlight"><span class="rp-ico t-redlight"></span>Cámara semáforo</button>
+    <button class="rp" data-type="police"><span class="rp-ico t-police"></span>Policía</button>
+    <button class="rp" data-type="hazard"><span class="rp-ico t-hazard"></span>Peligro</button>
+  </div>
+  <div id="rpLimit" class="rp-limit" hidden>
+    <div class="lbl">Límite de velocidad del radar</div>
+    <div class="chips" id="rpLimitChips"></div>
+  </div>
+</div>
+
+<!-- Ajustes -->
+<div id="settings" class="panel sheet settings" hidden>
+  <div class="pv-head">
+    <div class="pv-name">Ajustes</div>
+    <button class="sheet-x" id="setClose" aria-label="Cerrar">✕</button>
+  </div>
+  <div class="set-body">
+    <h3>Alertas</h3>
+    <label class="row"><input type="checkbox" id="optVoice"> Avisos por voz</label>
+    <label class="row"><input type="checkbox" id="optSound"> Sonidos de alerta</label>
+    <div class="lbl">Volumen</div>
+    <input type="range" id="optVol" min="0" max="100">
+    <div class="lbl">Distancia de aviso de radares</div>
+    <div class="seg" data-key="alertDist"><button data-v="300">300 m</button><button data-v="500">500 m</button><button data-v="800">800 m</button><button data-v="1200">1,2 km</button></div>
+    <div class="lbl">Tolerancia sobre el límite</div>
+    <div class="seg" data-key="tolerance"><button data-v="0">0</button><button data-v="5">+5</button><button data-v="10">+10</button><button data-v="15">+15</button></div>
+
+    <h3>Mapa</h3>
+    <div class="seg" data-key="mapStyle"><button data-v="dark">Oscuro</button><button data-v="light">Claro</button></div>
+    <label class="row"><input type="checkbox" id="optAutoZoom"> Zoom automático según velocidad</label>
+    <label class="row"><input type="checkbox" id="optRoadLimit"> Mostrar límite de la vía (OpenStreetMap)</label>
+    <div class="lbl">Unidad</div>
+    <div class="seg" data-key="unit"><button data-v="kmh">km/h</button><button data-v="mph">mph</button></div>
+
+    <h3>Pruebas sin GPS</h3>
+    <label class="row"><input type="checkbox" id="optSim"> Simular conducción (sigue la ruta o crea un radar de prueba)</label>
+    <div class="lbl">Velocidad simulada: <b id="simVal">70</b> km/h</div>
+    <input type="range" id="optSimSpd" min="0" max="140" value="70">
+
+    <h3>Datos</h3>
+    <div class="info" id="camInfo">Radares cargados: 0</div>
+    <div class="set-actions">
+      <button class="btn ghost" id="reloadCams">Actualizar radares</button>
+      <button class="btn danger" id="clearReports">Borrar mis reportes</button>
+    </div>
+    <p class="hint">Radares: comunidad OpenStreetMap + tus reportes (guardados en este navegador). Rutas: OSRM. Usa la app solo como apoyo y respeta siempre la señalización.</p>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<!-- Pantalla de inicio -->
+<div id="start" class="start">
+  <div class="st-card">
+    <div class="st-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#04121b" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><rect x="8.5" y="7.2" width="7" height="5" rx="1.2"/><circle cx="12" cy="9.7" r="1.3"/></svg>
+    </div>
+    <h1>WAZE</h1>
+    <p>Navegación con avisos de cámaras de velocidad, límite de la vía y alertas por voz. Toca <b>Iniciar</b> para activar el GPS y el sonido.</p>
+    <button id="startBtn" class="btn primary big">Iniciar</button>
+    <div id="startMsg" class="st-msg"></div>
+    <a href="index.html" class="st-back">← Volver a VELOX Drive</a>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+<script src="js/waze.js"></script>
+</body>
+</html>
