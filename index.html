@@ -5,44 +5,105 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
 <title>Velocidad y Motor · Tesla HUD</title>
 <style>
-  :root{--hue:200;--glow:hsl(var(--hue) 100% 55% / .8)}
+  :root{--hue:200}
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;background:#04060a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-  #hud{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:2;transition:transform .1s ease-out}
-  #speed{font-size:clamp(90px,26vw,360px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
-    color:hsl(var(--hue) 100% 70%);text-shadow:0 0 35px var(--glow),0 0 95px hsl(var(--hue) 100% 50% / .55);transition:color .12s, text-shadow .12s, transform .08s}
-  #unit{font-size:clamp(18px,3.2vw,40px);letter-spacing:.3em;opacity:.8;margin-top:.2em;text-shadow:0 0 16px var(--glow)}
-  #accel{margin-top:.8em;font-size:clamp(14px,2.2vw,26px);opacity:.95;min-height:1.4em;font-weight:600;letter-spacing:.04em;text-shadow:0 0 12px rgba(0,0,0,.9)}
+  
+  #hud{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:2}
+  #speed{
+    font-size:clamp(90px,26vw,360px);
+    font-weight:800;
+    line-height:1;
+    font-variant-numeric:tabular-nums;
+    letter-spacing:-.02em;
+    color:#ffffff;
+    /* Contraste nítido para que los números siempre sean 100% legibles */
+    text-shadow:0 6px 24px rgba(0,0,0,.95), 0 0 25px hsl(var(--hue) 100% 65% / .35);
+  }
+  #unit{font-size:clamp(18px,3.2vw,40px);letter-spacing:.3em;opacity:.85;margin-top:.2em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
+  #accel{margin-top:.8em;font-size:clamp(14px,2.2vw,26px);opacity:.95;min-height:1.4em;font-weight:600;letter-spacing:.04em;text-shadow:0 2px 12px rgba(0,0,0,.9)}
+  
   #bottom{position:fixed;left:0;right:0;bottom:0;padding:18px 24px 22px;background:linear-gradient(transparent,rgba(0,0,0,.75));pointer-events:none;z-index:3}
   #engname{font-size:clamp(18px,3vw,34px);font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.8)}
-  #engdesc{font-size:clamp(13px,1.8vw,20px);opacity:.8;margin-top:2px}
-  #engspec{font-size:clamp(12px,1.5vw,16px);opacity:.55;margin-top:2px;letter-spacing:.04em}
+  #engspec{font-size:clamp(12px,1.5vw,16px);opacity:.6;margin-top:2px;letter-spacing:.04em}
   #rpmrow{display:flex;align-items:center;gap:14px;margin-top:12px}
-  #gear{font-size:clamp(20px,3vw,36px);font-weight:800;min-width:2.4ch;text-align:center;text-shadow:0 0 18px var(--glow)}
+  #gear{font-size:clamp(20px,3vw,36px);font-weight:800;min-width:2.4ch;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.9)}
   #rpmbar{flex:1;height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
   #rpmfill{height:100%;width:0;background:linear-gradient(90deg,#2bd4ff,#ffd43b 70%,#ff3b3b);border-radius:8px;box-shadow:0 0 12px #2bd4ff88}
   #rpmtxt{font-size:clamp(14px,2vw,22px);min-width:8ch;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
-  #status{position:fixed;top:16px;left:18px;font-size:13px;opacity:.75;background:rgba(10,14,22,.65);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);z-index:4}
   
-  .top-btn{position:fixed;top:12px;width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(18,22,32,.75);backdrop-filter:blur(10px);color:#fff;font-size:23px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:6;touch-action:manipulation;transition:transform .12s, background .15s, border-color .15s}
-  .top-btn:active{transform:scale(0.92);background:rgba(13,110,253,.5);border-color:#5aa0ff}
-  #gearbtn{right:16px}
-  #fsbtn{right:76px;font-size:21px}
+  #status{position:fixed;top:16px;left:18px;font-size:13px;opacity:.8;background:rgba(10,14,22,.7);backdrop-filter:blur(8px);padding:6px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);z-index:4}
+  
+  /* Botones circulares superiores */
+  .btn-group{position:fixed;top:12px;right:14px;display:flex;gap:10px;z-index:6}
+  .top-btn{
+    width:52px;
+    height:52px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.24);
+    background:rgba(18,22,32,.8);
+    backdrop-filter:blur(12px);
+    color:#fff;
+    font-size:22px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    cursor:pointer;
+    touch-action:manipulation;
+    transition:transform .12s, background .15s, border-color .15s, box-shadow .15s;
+  }
+  .top-btn:active, .top-btn.active{
+    transform:scale(0.94);
+    background:rgba(13,110,253,.55);
+    border-color:#5aa0ff;
+    box-shadow:0 0 14px rgba(13,110,253,.45);
+  }
 
-  #panel{position:fixed;top:72px;right:14px;width:min(420px,94vw);max-height:calc(100% - 90px);overflow-y:auto;overflow-x:hidden;background:rgba(14,18,28,.96);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:18px;display:none;z-index:7;box-shadow:0 12px 40px rgba(0,0,0,.8)}
-  #panel.open{display:block}
-  #panel h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.65;margin:16px 0 8px;font-weight:700}
-  #panel h3:first-child{margin-top:0}
+  /* Paneles flotantes desplegables */
+  .pop-panel{
+    position:fixed;
+    top:72px;
+    right:14px;
+    width:min(420px,94vw);
+    max-height:calc(100% - 90px);
+    overflow-y:auto;
+    overflow-x:hidden;
+    background:rgba(14,18,28,.96);
+    backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.18);
+    border-radius:20px;
+    padding:18px;
+    display:none;
+    z-index:7;
+    box-shadow:0 12px 40px rgba(0,0,0,.85);
+    -webkit-overflow-scrolling:touch;
+  }
+  .pop-panel.open{display:block}
+  .pop-panel h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.65;margin:16px 0 8px;font-weight:700}
+  .pop-panel h3:first-child{margin-top:0}
+  
   .eng,.themes-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  button.e,button.u,button.v,button.th{padding:13px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#1a202d;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s ease}
+  .eng{max-height:54vh;overflow-y:auto;padding-right:2px}
+  
+  button.e,button.u,button.v,button.th{
+    padding:13px 8px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.18);
+    background:#1a202d;
+    color:#fff;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .15s ease;
+  }
   button.e:active,button.u:active,button.v:active,button.th:active{transform:scale(0.96)}
   button.e.on,button.u.on,button.v.on,button.th.on{background:#0d6efd;border-color:#5aa0ff;box-shadow:0 0 14px rgba(13,110,253,.55)}
-  button.wide-btn{width:100%;margin-top:10px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:#222a38;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
-  button.wide-btn:active{background:#0d6efd}
+  
   input[type=range]{width:100%;height:38px;accent-color:#0d6efd}
-  label.row{display:flex;align-items:center;gap:12px;font-size:15px;padding:7px 0;cursor:pointer}
+  label.row{display:flex;align-items:center;gap:12px;font-size:15px;padding:6px 0;cursor:pointer}
   label.row input{width:22px;height:22px;accent-color:#0d6efd}
+  .opt-desc{font-size:12px;opacity:.6;margin:-2px 0 8px 34px;line-height:1.3}
 
   #rev{position:fixed;right:22px;bottom:155px;width:125px;height:125px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(13,110,253,.38);backdrop-filter:blur(8px);color:#fff;font-size:14px;font-weight:800;letter-spacing:.06em;touch-action:none;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 25px rgba(13,110,253,.35)}
   #rev:active,#rev.down{background:rgba(255,60,60,.6);border-color:#ff9e94;box-shadow:0 0 35px rgba(255,60,60,.65);transform:scale(0.96)}
@@ -54,7 +115,7 @@
   #startbtn{padding:20px 52px;font-size:22px;font-weight:800;border-radius:18px;border:0;background:linear-gradient(135deg,#0d6efd,#004bb5);color:#fff;box-shadow:0 8px 30px rgba(13,110,253,.5);cursor:pointer;transition:transform .12s}
   #startbtn:active{transform:scale(0.95)}
   #msg{color:#ffb74d;font-size:14px;min-height:1.2em}
-  .hint{font-size:12px;opacity:.55;margin-top:6px}
+  .hint{font-size:12px;opacity:.65;margin-top:6px}
 </style>
 </head>
 <body>
@@ -67,12 +128,26 @@
 </div>
 
 <div id="status">GPS: sin iniciar</div>
-<button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
-<button id="gearbtn" class="top-btn" aria-label="Ajustes" title="Ajustes">⚙</button>
+
+<!-- Botones circulares superiores -->
+<div class="btn-group">
+  <button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+  <button id="themebtn" class="top-btn" aria-label="Temas visuales" title="Estilos visuales">🎨</button>
+  <button id="engbtn" class="top-btn" aria-label="Motores" title="Seleccionar motor">🚗</button>
+  <button id="gearbtn" class="top-btn" aria-label="Ajustes" title="Ajustes">⚙</button>
+</div>
+
 <button id="rev" hidden>ACELERAR<br><span style="font-size:11px;opacity:.85;font-weight:normal">(neutro)</span></button>
 
-<div id="panel">
-  <h3>Efectos Visuales</h3>
+<!-- Panel Desplegable: Motores -->
+<div id="panel-engine" class="pop-panel">
+  <h3>🚗 Seleccionar Motor</h3>
+  <div class="eng" id="engbtns"></div>
+</div>
+
+<!-- Panel Desplegable: Temas Visuales -->
+<div id="panel-theme" class="pop-panel">
+  <h3>🎨 Estilo Visual</h3>
   <label class="row"><input type="checkbox" id="fxon" checked> Efectos visuales activados</label>
   <div class="themes-grid">
     <button class="th on" data-th="hyperspace">✨ Hiperespacio</button>
@@ -80,22 +155,17 @@
     <button class="th" data-th="vortex">🌀 Vórtice Sónico</button>
     <button class="th" data-th="minimal">🌙 Minimal OLED</button>
   </div>
-  <label class="row"><input type="checkbox" id="accelfx" checked> Sensación de aceleración (G-Force & Warp)</label>
-  <label class="row"><input type="checkbox" id="flashfx" checked> Destello de corte y cambio de marcha</label>
+</div>
 
-  <h3>Pantalla y Controles</h3>
-  <button class="wide-btn" id="panelfsbtn">⛶ Entrar en Pantalla Completa</button>
-  <p class="hint">Tip: Toca dos veces la pantalla mientras conduces para ocultar los botones (Modo Inmersivo).</p>
-
-  <h3>Motor</h3>
-  <div class="eng" id="engbtns"></div>
-
+<!-- Panel Desplegable: Ajustes Generales -->
+<div id="panel-settings" class="pop-panel">
   <h3>Sonido</h3>
   <div class="eng">
     <button class="v on" data-v="0">Cabina</button>
     <button class="v" data-v="1">Escape (exterior)</button>
   </div>
-  <label class="row"><input type="checkbox" id="amb" checked> Viento y rodadura</label>
+  <label class="row"><input type="checkbox" id="amb"> Viento y rodadura</label>
+  <p class="opt-desc">Sonido de flujo de aire y fricción de neumáticos.</p>
 
   <h3>Volumen</h3>
   <input type="range" id="vol" min="0" max="100" value="60">
@@ -106,15 +176,22 @@
     <button class="u" data-u="mph">mph</button>
   </div>
 
+  <h3>Opciones de Aceleración</h3>
+  <label class="row"><input type="checkbox" id="accelfx"> Sensación de aceleración (G-Force & Warp)</label>
+  <p class="opt-desc">Agrega micro-vibración suave y estelas extra al acelerar fuerte.</p>
+  <label class="row"><input type="checkbox" id="flashfx"> Destello de corte y cambio de marcha</label>
+  <p class="opt-desc">Aviso luminoso en cambios de marcha y corte del limitador.</p>
+
   <h3>Pruebas (sin GPS)</h3>
   <label class="row"><input type="checkbox" id="demo"> Demo automática: acelera y frena</label>
   <label class="row"><input type="checkbox" id="test"> Simular velocidad a mano</label>
   <input type="range" id="tspeed" min="0" max="260" value="0">
+
+  <p class="hint">Tip: Toca dos veces la pantalla mientras conduces para ocultar los botones (Modo Inmersivo).</p>
 </div>
 
 <div id="bottom">
   <div id="engname">—</div>
-  <div id="engdesc">—</div>
   <div id="engspec">—</div>
   <div id="rpmrow">
     <div id="gear">N</div>
@@ -125,8 +202,8 @@
 
 <div id="start">
   <h1>Velocidad y Motor</h1>
-  <p>Mide tu velocidad con el GPS del navegador, genera efectos visuales dinámicos de alta velocidad y reproduce sonido físico realista de motor. Optimizado para el navegador de tu Tesla Model Y.</p>
-  <p>Tus ajustes (motor, volumen, efectos y unidad) se guardan automáticamente. Toca dos veces la pantalla para alternar el modo inmersivo limpio.</p>
+  <p>Mide tu velocidad con el GPS del navegador, genera efectos visuales dinámicos y reproduce sonido físico realista de motor. Optimizado para el navegador de tu Tesla Model Y.</p>
+  <p>Tus ajustes se guardan automáticamente. Toca dos veces la pantalla para alternar el modo inmersivo limpio.</p>
   <button id="startbtn">Iniciar HUD</button>
   <div id="msg"></div>
 </div>
@@ -233,7 +310,7 @@ class EngineDSP{
   constructor(sr){
     this.sr=sr;this.c=null;this.th=0;this.sd=2463534242;this.t=0;
     this.rpm=800;this.thr=0;this.spd=0;this.regen=0;
-    this.tg={rpm:800,thr:0,speed:0,lim:0,regen:0,st:0,view:0,amb:1};
+    this.tg={rpm:800,thr:0,speed:0,lim:0,regen:0,st:0,view:0,amb:0};
     this.prevD=new Float64Array(16);this.ea=new Float64Array(16);
     this.bf0=new Float32Array(8192);this.bf1=new Float32Array(8192);this.wp=0;
     this.lp0=0;this.lp1=0;this.hxl=0;this.hyl=0;this.hxr=0;this.hyr=0;
@@ -267,7 +344,7 @@ class EngineDSP{
     if(m.thr!==undefined)t.thr=m.thr;
     if(m.speed!==undefined)t.speed=m.speed;
     t.lim=m.lim|0;t.regen=m.regen||0;t.st=m.st||0;t.view=m.view|0;
-    t.amb=(m.amb===undefined)?1:m.amb;
+    t.amb=(m.amb===undefined)?0:m.amb;
   }
   render(L,R,n){
     var c=this.c;
@@ -422,10 +499,14 @@ const CORE = document.getElementById('core').textContent;
 const {EngineDSP, PROFILES} = new Function(CORE + ';return {EngineDSP:EngineDSP,PROFILES:PROFILES};')();
 
 /* ---------- Persistencia Local (localStorage) ---------- */
-const PREFS_KEY = 'tesla_hud_user_prefs_v1';
+const PREFS_KEY = 'tesla_hud_user_prefs_v2';
 let cur = 'v8';
-let vol = 0.6, unit = 'kmh', view = 0, amb = 1;
-let fxOn = true, vfxTheme = 'hyperspace', accelFx = true, flashFx = true;
+let vol = 0.6, unit = 'kmh', view = 0;
+// Por defecto desactivados según solicitud:
+let amb = 0;        // Viento y rodadura
+let fxOn = true, vfxTheme = 'hyperspace';
+let accelFx = false; // Sensación de aceleración (G-Force & Warp)
+let flashFx = false; // Destello de corte y cambio de marcha
 
 function loadPreferences() {
   try {
@@ -462,7 +543,7 @@ let gpsSpeed = 0, shown = 0, lastShown = 0, accel = 0, throttle = 0;
 let lastFix = 0, started = false;
 let gear = 0, rpmSim = 800, shiftT = 0, limiter = false, hold = 0, startT = 99;
 let testMode = false, testSpeed = 0, demoOn = false, demoT = 0;
-let shiftFlashT = 0; // Temporizador para destello visual de cambio de marcha
+let shiftFlashT = 0;
 
 /* ---------- GPS (Geolocation API) ---------- */
 let prev = null;
@@ -527,7 +608,6 @@ async function initAudio(){
 function applyEngine(){
   const p = PROFILES[cur];
   $('engname').textContent = p.name;
-  $('engdesc').textContent = p.desc;
   $('engspec').textContent = p.spec;
   document.querySelectorAll('button.e').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
   gear = 0; shiftT = 0; limiter = false;
@@ -561,7 +641,8 @@ function updateEngine(dt, now){
     let rpmGear = p.red*spd/vm[gear];
     if (shiftT <= 0 && startT > 1.7) {
       if (gear < vm.length-1 && rpmGear > p.red*(0.72+0.2*throttle)) {
-        gear++; shiftT = p.shift; shiftFlashT = 0.16;
+        gear++; shiftT = p.shift;
+        if (flashFx) shiftFlashT = 0.12;
       } else if (gear > 0 && rpmGear < p.red*0.33) {
         gear--; shiftT = p.shift*0.6;
       }
@@ -609,48 +690,34 @@ addEventListener('resize',resize); resize();
 const P = [];
 function mk(p,init){
   p.a = Math.random()*Math.PI*2;
-  p.r = init ? Math.random()*maxR : Math.random()*maxR*.1 + 8;
-  p.s = .6 + Math.random()*1.8;
+  p.r = init ? Math.random()*maxR : Math.random()*maxR*.1 + 10;
+  p.s = .5 + Math.random()*1.5;
   p.l = .5 + Math.random();
-  p.z = Math.random();
   return p;
 }
-for (let i=0;i<260;i++) P.push(mk({},true));
+for (let i=0;i<240;i++) P.push(mk({},true));
 
-/* Rayos de luz radiales para aceleración extrema */
-const WARP_RAYS = [];
-for (let i=0;i<24;i++){
-  WARP_RAYS.push({
-    a: (i / 24) * Math.PI * 2 + (Math.random() - 0.5) * 0.1,
-    len: 0.4 + Math.random() * 0.6,
-    speed: 1 + Math.random() * 1.5,
-    w: 1 + Math.random() * 2.5
-  });
-}
-
-/* Offset para Tema Cyber Grid */
 let gridOffset = 0;
-
-/* Offset para Tema Vórtice Sónico */
 let vortexAngle = 0;
 let vortexOffset = 0;
 
 function drawVisuals(dt, now, accelVal) {
   const level = clamp(shown/200, 0, 1);
-  const accelBoost = clamp(Math.max(0, accelVal) / 2.2, 0, 2.8); // 0 a 2.8+ según empuje
+  // Efecto suave de aceleración calibrado
+  const accelBoost = clamp(Math.max(0, accelVal) / 3.0, 0, 1.2);
   
-  // Tono dinámico: de cian (200) a rojo/magenta intenso en aceleración rápida
-  const targetHue = clamp(200 - 150*level - 70*clamp(accelBoost,0,1), 0, 240);
+  // Tonalidad suave: de cian a azul-violeta / naranja según velocidad
+  const targetHue = clamp(200 - 160*level, 20, 210);
   document.documentElement.style.setProperty('--hue', targetHue);
 
-  // Cámara / Vibración G-Force por aceleración, corte o cambio de marcha
+  // Micro-vibración sutil (solo si el usuario la activa explícitamente)
   let shakeX = 0, shakeY = 0;
   if (accelFx && fxOn) {
     let shakeIntensity = 0;
-    if (accelVal > 0.5) shakeIntensity += (accelVal - 0.5) * 4.2;
-    if (shiftT > 0 && cur !== 'ev' && cur !== 'ev2') shakeIntensity += 7.5;
-    if (limiter) shakeIntensity += 5.5;
-    shakeIntensity = Math.min(shakeIntensity, 16);
+    if (accelVal > 0.8) shakeIntensity += (accelVal - 0.8) * 1.0;
+    if (shiftT > 0 && cur !== 'ev' && cur !== 'ev2') shakeIntensity += 1.8;
+    if (limiter) shakeIntensity += 1.8;
+    shakeIntensity = Math.min(shakeIntensity, 3.0);
     if (shakeIntensity > 0) {
       shakeX = (Math.random() - 0.5) * shakeIntensity * dpr;
       shakeY = (Math.random() - 0.5) * shakeIntensity * dpr;
@@ -667,7 +734,6 @@ function drawVisuals(dt, now, accelVal) {
 
   const cx = W / 2, cy = H / 2;
 
-  // Renderizar según el tema elegido
   if (vfxTheme === 'minimal') {
     drawMinimal(cx, cy, level, accelBoost, targetHue, dt, now);
   } else if (vfxTheme === 'cyber_grid') {
@@ -678,46 +744,43 @@ function drawVisuals(dt, now, accelVal) {
     drawHyperspace(cx, cy, level, accelBoost, targetHue, dt, now);
   }
 
-  // Destello visual de cambio de marcha / corte
+  // Destello sutil de corte y cambio (solo si el usuario lo activa)
   if (flashFx) {
     if (shiftFlashT > 0) {
       shiftFlashT -= dt;
-      const alpha = clamp(shiftFlashT / 0.16, 0, 1) * 0.28;
+      const alpha = clamp(shiftFlashT / 0.12, 0, 1) * 0.16;
       ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.fillRect(0, 0, W, H);
     } else if (limiter) {
       const redPulse = 0.5 + 0.5 * Math.sin(now * 0.035);
-      ctx.fillStyle = `rgba(255, 25, 25, ${0.18 * redPulse})`;
+      ctx.fillStyle = `rgba(255, 25, 25, ${0.12 * redPulse})`;
       ctx.fillRect(0, 0, W, H);
     }
   }
 }
 
-/* 1. ✨ TEMA HIPERESPACIO CON WARP BOOST */
+/* 1. ✨ TEMA HIPERESPACIO EQUILIBRADO */
 function drawHyperspace(cx, cy, level, accelBoost, hue, dt, now) {
-  // Trail fade con menos opacidad a alta velocidad para crear sensación de estela
-  const fade = clamp(0.42 - level * 0.22 - accelBoost * 0.1, 0.12, 0.5);
-  ctx.fillStyle = `rgba(4, 6, 10, ${fade})`;
+  // Fondo oscuro que preserva la lectura limpia del número en el centro
+  ctx.fillStyle = `rgba(4, 6, 10, ${.42 - level*.2})`;
   ctx.fillRect(0, 0, W, H);
 
-  // Efecto de deformación estelar: velocidad base + boost brutal de aceleración
-  const warpMultiplier = 1 + accelBoost * 3.2;
-  const speedScale = (.05 + level * 2.2 + accelBoost * 2.5);
+  const warpMultiplier = 1 + (accelFx ? accelBoost * 0.6 : 0);
+  const speedScale = (.04 + level * 1.7) * warpMultiplier;
 
   ctx.lineCap = 'round';
   for (const p of P) {
     const k = p.r / maxR;
-    p.r += speedScale * p.s * maxR * (.2 + k) * warpMultiplier * dt;
+    p.r += speedScale * p.s * maxR * (.25 + k) * dt;
     if (p.r > maxR) mk(p, false);
 
-    const len = (4 + (level * level * 0.5 + accelBoost * 0.8) * maxR * 0.45) * p.l * (.3 + k) * (1 + accelBoost * 1.5);
+    const len = (3 + level * level * maxR * .38) * p.l * (.3 + k) * (1 + (accelFx ? accelBoost * 0.4 : 0));
     const x1 = cx + Math.cos(p.a) * p.r, y1 = cy + Math.sin(p.a) * p.r;
     const x0 = cx + Math.cos(p.a) * Math.max(0, p.r - len), y0 = cy + Math.sin(p.a) * Math.max(0, p.r - len);
 
-    const light = 60 + level * 20 + accelBoost * 15;
-    const alpha = clamp((.18 + .65 * k * (.4 + level + accelBoost * 0.5)), 0.1, 1);
-    ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${alpha})`;
-    ctx.lineWidth = (1 + 2.8 * k) * dpr * (.5 + level * 0.8 + accelBoost * 0.6);
+    const alpha = clamp((.15 + .6 * k * (.4 + level)), 0.1, 0.9);
+    ctx.strokeStyle = `hsla(${hue}, 100%, ${60 + level * 15}%, ${alpha})`;
+    ctx.lineWidth = (1 + 2.5 * k) * dpr * (.5 + level);
 
     ctx.beginPath();
     ctx.moveTo(x0, y0);
@@ -725,112 +788,72 @@ function drawHyperspace(cx, cy, level, accelBoost, hue, dt, now) {
     ctx.stroke();
   }
 
-  // Rayos hiperlumínicos que disparan del centro cuando se pisa a fondo
-  if (accelBoost > 0.4 || level > 0.6) {
-    const rayAlpha = clamp((accelBoost - 0.3) * 0.7 + level * 0.3, 0, 0.85);
-    for (const r of WARP_RAYS) {
-      r.a += 0.1 * dt;
-      const rayLen = maxR * (0.6 + 0.4 * Math.sin(now * 0.005 * r.speed));
-      const rx1 = cx + Math.cos(r.a) * rayLen;
-      const ry1 = cy + Math.sin(r.a) * rayLen;
-      const grad = ctx.createLinearGradient(cx, cy, rx1, ry1);
-      grad.addColorStop(0, `hsla(${hue}, 100%, 85%, ${rayAlpha * 0.6})`);
-      grad.addColorStop(0.3, `hsla(${hue}, 100%, 65%, ${rayAlpha * 0.35})`);
-      grad.addColorStop(1, 'rgba(0,0,0,0)');
-
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = r.w * dpr * (1 + accelBoost);
-      ctx.beginPath();
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(rx1, ry1);
-      ctx.stroke();
-    }
-  }
-
-  // Aura radial central expansiva
-  if (level > 0.1 || accelBoost > 0.2) {
-    const pulseR = maxR * (0.28 + 0.08 * Math.sin(now * 0.006) + accelBoost * 0.18);
-    const g = ctx.createRadialGradient(cx, cy, pulseR * 0.2, cx, cy, pulseR);
-    g.addColorStop(0, `hsla(${hue}, 100%, 70%, ${(level * 0.25 + accelBoost * 0.35)})`);
-    g.addColorStop(1, 'rgba(0,0,0,0)');
+  // Resplandor radial SOLO en el perímetro exterior (el centro se mantiene oscuro para legibilidad)
+  if (level > 0.15) {
+    const g = ctx.createRadialGradient(cx, cy, maxR * 0.38, cx, cy, maxR);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); // Centro 100% transparente: números limpios
+    g.addColorStop(1, `hsla(${hue}, 100%, 50%, ${level * 0.26})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
 }
 
-/* 2. ⚡ TEMA CYBER GRID (CARRETERA SYNTHWAVE / TRON) */
+/* 2. ⚡ TEMA CYBER GRID (CARRETERA SYNTHWAVE) */
 function drawCyberGrid(cx, cy, level, accelBoost, hue, dt, now) {
   ctx.fillStyle = 'rgba(5, 7, 14, 0.45)';
   ctx.fillRect(0, 0, W, H);
 
-  const horizonY = cy + H * 0.06;
-  const gridSpeed = (shown * 0.8 + accelBoost * 120 + 20) * dt * 0.006;
+  const horizonY = cy + H * 0.08;
+  const gridSpeed = (shown * 0.65 + 15) * dt * 0.006;
   gridOffset = (gridOffset + gridSpeed) % 1;
 
-  // Sol de neón / Horizonte pulsante
-  const sunR = Math.min(W, H) * 0.18;
-  const sunGrad = ctx.createRadialGradient(cx, horizonY - sunR * 0.3, sunR * 0.1, cx, horizonY - sunR * 0.3, sunR);
-  sunGrad.addColorStop(0, `hsla(${hue + 40}, 100%, 75%, 0.9)`);
-  sunGrad.addColorStop(0.7, `hsla(${hue}, 100%, 55%, 0.4)`);
+  // Sol tenue en el horizonte
+  const sunR = Math.min(W, H) * 0.15;
+  const sunGrad = ctx.createRadialGradient(cx, horizonY - sunR * 0.25, sunR * 0.1, cx, horizonY - sunR * 0.25, sunR);
+  sunGrad.addColorStop(0, `hsla(${hue + 30}, 100%, 75%, 0.65)`);
+  sunGrad.addColorStop(0.7, `hsla(${hue}, 100%, 55%, 0.25)`);
   sunGrad.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = sunGrad;
   ctx.beginPath();
-  ctx.arc(cx, horizonY - sunR * 0.3, sunR, Math.PI, 0, false);
+  ctx.arc(cx, horizonY - sunR * 0.25, sunR, Math.PI, 0, false);
   ctx.fill();
 
-  // Línea de horizonte con resplandor
-  ctx.strokeStyle = `hsla(${hue}, 100%, 70%, 0.8)`;
-  ctx.lineWidth = 2 * dpr;
+  // Línea de horizonte
+  ctx.strokeStyle = `hsla(${hue}, 100%, 65%, 0.6)`;
+  ctx.lineWidth = 1.5 * dpr;
   ctx.beginPath();
   ctx.moveTo(0, horizonY);
   ctx.lineTo(W, horizonY);
   ctx.stroke();
 
-  // Líneas de perspectiva en fuga hacia el centro
-  const numLongLines = 20;
+  // Líneas longitudinales
+  const numLongLines = 18;
   for (let i = -numLongLines; i <= numLongLines; i++) {
     const xBase = cx + i * (W / (numLongLines * 1.3));
-    const xFar = cx + (i / numLongLines) * (W * 0.04);
-    const alpha = clamp(1 - Math.abs(i) / numLongLines, 0.2, 0.8);
+    const xFar = cx + (i / numLongLines) * (W * 0.05);
+    const alpha = clamp(1 - Math.abs(i) / numLongLines, 0.15, 0.65);
 
-    ctx.strokeStyle = `hsla(${hue}, 100%, ${60 + accelBoost * 20}%, ${alpha * 0.55})`;
-    ctx.lineWidth = (i === 0 ? 3 : 1.5) * dpr;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 60%, ${alpha * 0.45})`;
+    ctx.lineWidth = 1.2 * dpr;
     ctx.beginPath();
     ctx.moveTo(xFar, horizonY);
     ctx.lineTo(xBase, H);
     ctx.stroke();
   }
 
-  // Líneas horizontales de perspectiva moviéndose hacia la cámara
-  const numTrans = 14;
+  // Líneas transversales
+  const numTrans = 12;
   for (let j = 0; j < numTrans; j++) {
     const frac = (j + gridOffset) / numTrans;
     const y = horizonY + (H - horizonY) * Math.pow(frac, 2.5);
-    const alpha = clamp(Math.pow(frac, 1.8), 0, 1);
-    const glowLight = 50 + 40 * Math.pow(frac, 2) + accelBoost * 20;
+    const alpha = clamp(Math.pow(frac, 1.8), 0, 0.8);
 
-    ctx.strokeStyle = `hsla(${hue}, 100%, ${glowLight}%, ${alpha * (0.4 + accelBoost * 0.4)})`;
-    ctx.lineWidth = (1 + 2.5 * frac) * dpr;
+    ctx.strokeStyle = `hsla(${hue}, 100%, 55%, ${alpha * 0.4})`;
+    ctx.lineWidth = (1 + 2 * frac) * dpr;
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(W, y);
     ctx.stroke();
-  }
-
-  // Estelas laterales tipo barrera de luz rápida
-  if (level > 0.1 || accelBoost > 0.2) {
-    const barW = W * 0.05;
-    const sideGlow = ctx.createLinearGradient(0, 0, barW, 0);
-    sideGlow.addColorStop(0, `hsla(${hue}, 100%, 60%, ${(level * 0.4 + accelBoost * 0.3)})`);
-    sideGlow.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = sideGlow;
-    ctx.fillRect(0, 0, barW, H);
-
-    const rightSide = ctx.createLinearGradient(W, 0, W - barW, 0);
-    rightSide.addColorStop(0, `hsla(${hue}, 100%, 60%, ${(level * 0.4 + accelBoost * 0.3)})`);
-    rightSide.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = rightSide;
-    ctx.fillRect(W - barW, 0, barW, H);
   }
 }
 
@@ -839,22 +862,22 @@ function drawVortex(cx, cy, level, accelBoost, hue, dt, now) {
   ctx.fillStyle = 'rgba(4, 7, 12, 0.4)';
   ctx.fillRect(0, 0, W, H);
 
-  const speedFactor = (0.2 + level * 1.8 + accelBoost * 2.8);
-  vortexOffset = (vortexOffset + speedFactor * dt * 0.6) % 1;
-  vortexAngle += (0.2 + level * 0.8 + accelBoost * 2.0) * dt;
+  const speedFactor = (0.2 + level * 1.6);
+  vortexOffset = (vortexOffset + speedFactor * dt * 0.5) % 1;
+  vortexAngle += (0.15 + level * 0.6) * dt;
 
-  const numRings = 16;
+  const numRings = 14;
   for (let i = 0; i < numRings; i++) {
     const frac = (i + vortexOffset) / numRings;
     const r = maxR * Math.pow(frac, 2.2);
-    if (r < 5) continue;
+    if (r < 10) continue;
 
     const sides = 8;
-    const rot = vortexAngle * (i % 2 === 0 ? 1 : -1) * 0.4;
-    const alpha = clamp(Math.pow(frac, 1.4) * (0.3 + level * 0.5 + accelBoost * 0.5), 0.1, 0.95);
+    const rot = vortexAngle * (i % 2 === 0 ? 1 : -1) * 0.3;
+    const alpha = clamp(Math.pow(frac, 1.4) * (0.2 + level * 0.4), 0.08, 0.7);
 
-    ctx.strokeStyle = `hsla(${hue + i * 4}, 100%, ${55 + accelBoost * 25}%, ${alpha})`;
-    ctx.lineWidth = (1 + frac * 3.5) * dpr * (1 + accelBoost * 0.6);
+    ctx.strokeStyle = `hsla(${hue + i * 3}, 100%, 60%, ${alpha})`;
+    ctx.lineWidth = (1 + frac * 2.8) * dpr;
 
     ctx.beginPath();
     for (let s = 0; s <= sides; s++) {
@@ -865,76 +888,30 @@ function drawVortex(cx, cy, level, accelBoost, hue, dt, now) {
     }
     ctx.stroke();
   }
-
-  // Líneas radiales que conectan el vórtice
-  const spokes = 12;
-  for (let s = 0; s < spokes; s++) {
-    const a = vortexAngle * 0.2 + (s / spokes) * Math.PI * 2;
-    const x0 = cx + Math.cos(a) * (maxR * 0.08);
-    const y0 = cy + Math.sin(a) * (maxR * 0.08);
-    const x1 = cx + Math.cos(a) * maxR;
-    const y1 = cy + Math.sin(a) * maxR;
-
-    ctx.strokeStyle = `hsla(${hue}, 100%, 65%, ${0.2 + level * 0.2 + accelBoost * 0.4})`;
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath();
-    ctx.moveTo(x0, y0);
-    ctx.lineTo(x1, y1);
-    ctx.stroke();
-  }
 }
 
-/* 4. 🌙 TEMA MINIMAL OLED (PANTALLA LIMPIA DE ALTO RENDIMIENTO) */
+/* 4. 🌙 TEMA MINIMAL OLED */
 function drawMinimal(cx, cy, level, accelBoost, hue, dt, now) {
-  // Fondo negro absoluto para pantallas OLED y conducción nocturna
   ctx.fillStyle = '#000000';
   ctx.fillRect(0, 0, W, H);
 
-  // Anillo fino y elegante de tacómetro / velocímetro alrededor del número
   const rMin = Math.min(W, H) * 0.32;
   const startAngle = Math.PI * 0.75;
   const endAngle = Math.PI * 2.25;
   const sweep = endAngle - startAngle;
 
-  // Arco base tenue
   ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
-  ctx.lineWidth = 4 * dpr;
+  ctx.lineWidth = 3.5 * dpr;
   ctx.beginPath();
   ctx.arc(cx, cy, rMin, startAngle, endAngle);
   ctx.stroke();
 
-  // Arco activo de velocidad
   const activeSweep = startAngle + sweep * level;
   ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
-  ctx.lineWidth = (4 + accelBoost * 3) * dpr;
-  ctx.shadowColor = `hsl(${hue}, 100%, 55%)`;
-  ctx.shadowBlur = (8 + accelBoost * 18) * dpr;
+  ctx.lineWidth = 3.5 * dpr;
   ctx.beginPath();
   ctx.arc(cx, cy, rMin, startAngle, activeSweep);
   ctx.stroke();
-  ctx.shadowBlur = 0;
-
-  // Indicador sutil de G-Force / Aceleración en la parte superior
-  if (Math.abs(accel) > 0.2) {
-    const gVal = clamp(accel / 5, -1, 1);
-    const gRadius = 24 * dpr;
-    const gx = cx;
-    const gy = cy - rMin * 0.85;
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.lineWidth = 1.5 * dpr;
-    ctx.beginPath();
-    ctx.arc(gx, gy, gRadius, 0, Math.PI * 2);
-    ctx.stroke();
-
-    // Punto de fuerza G
-    const dotX = gx;
-    const dotY = gy - gVal * gRadius;
-    ctx.fillStyle = gVal > 0 ? '#00e5ff' : '#ff5252';
-    ctx.beginPath();
-    ctx.arc(dotX, dotY, 4 * dpr, 0, Math.PI * 2);
-    ctx.fill();
-  }
 }
 
 /* ---------- Bucle Principal ---------- */
@@ -968,7 +945,6 @@ function frame(now){
   $('speed').textContent = speedVal;
   $('unit').textContent = unit==='mph' ? 'MPH' : 'KM/H';
 
-  // Mostrar G-Force en texto de aceleración para mayor inmersión
   const gVal = (accel / 9.80665);
   if (accel > 0.5) {
     $('accel').textContent = `▲ Acelerando (+${gVal.toFixed(2)} G)`;
@@ -978,7 +954,7 @@ function frame(now){
     $('accel').style.color = '#ff8f8f';
   } else if (shown > 1) {
     $('accel').textContent = '● Velocidad constante';
-    $('accel').style.color = '#fff';
+    $('accel').style.color = '#ffffff';
   } else {
     $('accel').textContent = ' ';
   }
@@ -1010,14 +986,10 @@ function toggleFullscreen() {
   const el = document.documentElement;
   if (!isFullscreen()) {
     const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-    if (rfs) {
-      rfs.call(el).catch(err => console.warn('No se pudo activar pantalla completa:', err));
-    }
+    if (rfs) rfs.call(el).catch(err => console.warn('Error fullscreen:', err));
   } else {
     const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
-    if (efs) {
-      efs.call(document).catch(err => console.warn('No se pudo salir de pantalla completa:', err));
-    }
+    if (efs) efs.call(document).catch(err => console.warn('Error exit fullscreen:', err));
   }
 }
 
@@ -1025,7 +997,6 @@ function updateFullscreenUI() {
   const fs = isFullscreen();
   $('fsbtn').innerHTML = fs ? '✕' : '⛶';
   $('fsbtn').title = fs ? 'Salir de Pantalla Completa' : 'Pantalla Completa';
-  $('panelfsbtn').textContent = fs ? '✕ Salir de Pantalla Completa' : '⛶ Entrar en Pantalla Completa';
 }
 
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(ev => {
@@ -1036,18 +1007,50 @@ function updateFullscreenUI() {
 });
 
 $('fsbtn').onclick = toggleFullscreen;
-$('panelfsbtn').onclick = toggleFullscreen;
 
-/* Modo Inmersivo / Ocultar controles con doble toque */
+/* ---------- Gestión de Paneles Desplegables ---------- */
+const panels = {
+  engine: { btn: $('engbtn'), panel: $('panel-engine') },
+  theme: { btn: $('themebtn'), panel: $('panel-theme') },
+  settings: { btn: $('gearbtn'), panel: $('panel-settings') }
+};
+
+function togglePanel(key) {
+  Object.keys(panels).forEach(k => {
+    const p = panels[k];
+    if (k === key) {
+      const willOpen = !p.panel.classList.contains('open');
+      p.panel.classList.toggle('open', willOpen);
+      p.btn.classList.toggle('active', willOpen);
+    } else {
+      p.panel.classList.remove('open');
+      p.btn.classList.remove('active');
+    }
+  });
+}
+
+$('engbtn').onclick = () => togglePanel('engine');
+$('themebtn').onclick = () => togglePanel('theme');
+$('gearbtn').onclick = () => togglePanel('settings');
+
+// Cerrar paneles al tocar fuera
+window.addEventListener('pointerdown', e => {
+  if (e.target.closest('.pop-panel') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
+  Object.values(panels).forEach(p => {
+    p.panel.classList.remove('open');
+    p.btn.classList.remove('active');
+  });
+});
+
+/* Modo Inmersivo: Doble toque en pantalla limpia oculta/muestra botones */
 let cleanMode = false;
 let lastTapT = 0;
 window.addEventListener('pointerup', e => {
-  if (e.target.closest('#panel') || e.target.closest('#gearbtn') || e.target.closest('#fsbtn') || e.target.closest('#rev') || e.target.closest('#start')) return;
+  if (e.target.closest('.pop-panel') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
   const now = performance.now();
   if (now - lastTapT < 380) {
     cleanMode = !cleanMode;
-    $('gearbtn').style.display = cleanMode ? 'none' : 'flex';
-    $('fsbtn').style.display = cleanMode ? 'none' : 'flex';
+    document.querySelector('.btn-group').style.display = cleanMode ? 'none' : 'flex';
     $('status').style.display = cleanMode ? 'none' : 'block';
   }
   lastTapT = now;
@@ -1056,8 +1059,16 @@ window.addEventListener('pointerup', e => {
 /* ---------- Inicialización de UI y Controles ---------- */
 const eb = $('engbtns');
 Object.keys(PROFILES).forEach(k=>{
-  const b=document.createElement('button'); b.className='e' + (k===cur?' on':''); b.dataset.k=k; b.textContent=PROFILES[k].label;
-  b.onclick=()=>{cur=k; applyEngine(); savePreferences();};
+  const b=document.createElement('button');
+  b.className='e' + (k===cur?' on':'');
+  b.dataset.k=k;
+  b.textContent=PROFILES[k].label;
+  b.onclick=()=>{
+    cur=k;
+    applyEngine();
+    savePreferences();
+    togglePanel('engine'); // Cierra el panel al seleccionar
+  };
   eb.appendChild(b);
 });
 
@@ -1098,7 +1109,6 @@ $('fxon').checked = fxOn;
 $('accelfx').checked = accelFx;
 $('flashfx').checked = flashFx;
 
-$('gearbtn').onclick=()=>$('panel').classList.toggle('open');
 $('vol').oninput=e=>{vol=e.target.value/100; if(master) master.gain.value=vol; savePreferences();};
 $('amb').onchange=e=>{amb=e.target.checked?1:0; savePreferences();};
 $('fxon').onchange=e=>{fxOn=e.target.checked; savePreferences();};
