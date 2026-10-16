@@ -17,35 +17,104 @@
     line-height:1;
     font-variant-numeric:tabular-nums;
     letter-spacing:-.02em;
-    color:#ffffff;
-    /* Contraste nítido para que los números siempre sean 100% legibles */
-    text-shadow:0 6px 24px rgba(0,0,0,.95), 0 0 25px hsl(var(--hue) 100% 65% / .35);
+    /* Resplandor con color vibrante pero equilibrado, sin cegar los números */
+    color:hsl(var(--hue) 100% 76%);
+    text-shadow:
+      0 4px 18px rgba(0,0,0,.95),
+      0 0 25px hsl(var(--hue) 100% 55% / .55),
+      0 0 60px hsl(var(--hue) 100% 50% / .28);
+    transition:color .15s, text-shadow .15s;
   }
   #unit{font-size:clamp(18px,3.2vw,40px);letter-spacing:.3em;opacity:.85;margin-top:.2em;text-shadow:0 2px 10px rgba(0,0,0,.9)}
   #accel{margin-top:.8em;font-size:clamp(14px,2.2vw,26px);opacity:.95;min-height:1.4em;font-weight:600;letter-spacing:.04em;text-shadow:0 2px 12px rgba(0,0,0,.9)}
   
   #bottom{position:fixed;left:0;right:0;bottom:0;padding:18px 24px 22px;background:linear-gradient(transparent,rgba(0,0,0,.75));pointer-events:none;z-index:3}
-  #engname{font-size:clamp(18px,3vw,34px);font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.8)}
-  #engspec{font-size:clamp(12px,1.5vw,16px);opacity:.6;margin-top:2px;letter-spacing:.04em}
+  #engname{
+    font-size:clamp(14px,1.8vw,20px);
+    font-weight:600;
+    color:rgba(255,255,255,.65);
+    text-shadow:0 1px 4px rgba(0,0,0,.8);
+  }
+  #engspec{
+    font-size:clamp(11px,1.3vw,14px);
+    color:rgba(255,255,255,.45);
+    margin-top:2px;
+    letter-spacing:.04em;
+  }
   #rpmrow{display:flex;align-items:center;gap:14px;margin-top:12px}
   #gear{font-size:clamp(20px,3vw,36px);font-weight:800;min-width:2.4ch;text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.9)}
   #rpmbar{flex:1;height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
   #rpmfill{height:100%;width:0;background:linear-gradient(90deg,#2bd4ff,#ffd43b 70%,#ff3b3b);border-radius:8px;box-shadow:0 0 12px #2bd4ff88}
   #rpmtxt{font-size:clamp(14px,2vw,22px);min-width:8ch;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
   
-  #status{position:fixed;top:16px;left:18px;font-size:13px;opacity:.8;background:rgba(10,14,22,.7);backdrop-filter:blur(8px);padding:6px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.14);z-index:4}
-  
-  /* Botones circulares superiores */
-  .btn-group{position:fixed;top:12px;right:14px;display:flex;gap:10px;z-index:6}
-  .top-btn{
-    width:52px;
-    height:52px;
-    border-radius:50%;
+  /* Botones superiores izquierdos (Motor y Visual) */
+  .left-group{
+    position:fixed;
+    top:14px;
+    left:16px;
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    z-index:6;
+  }
+  .pill-btn{
+    height:46px;
+    min-width:175px;
+    padding:0 16px;
+    border-radius:23px;
     border:1px solid rgba(255,255,255,.24);
-    background:rgba(18,22,32,.8);
+    background:rgba(18,22,32,.85);
     backdrop-filter:blur(12px);
     color:#fff;
-    font-size:22px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    cursor:pointer;
+    touch-action:manipulation;
+    transition:transform .12s, background .15s, border-color .15s, box-shadow .15s;
+  }
+  .pill-btn:active, .pill-btn.active{
+    transform:scale(0.96);
+    background:rgba(13,110,253,.55);
+    border-color:#5aa0ff;
+    box-shadow:0 0 14px rgba(13,110,253,.45);
+  }
+  .pill-tag{
+    font-size:11px;
+    font-weight:800;
+    letter-spacing:.08em;
+    opacity:.55;
+    text-transform:uppercase;
+  }
+  .pill-val{
+    font-size:14px;
+    font-weight:700;
+    color:#fff;
+  }
+  
+  #status{
+    font-size:12px;
+    opacity:.8;
+    background:rgba(10,14,22,.7);
+    backdrop-filter:blur(8px);
+    padding:5px 12px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.14);
+    width:fit-content;
+  }
+
+  /* Botones circulares superiores derechos (Pantalla completa y Ajustes) */
+  .btn-group{position:fixed;top:14px;right:16px;display:flex;gap:10px;z-index:6}
+  .top-btn{
+    width:50px;
+    height:50px;
+    border-radius:50%;
+    border:1px solid rgba(255,255,255,.24);
+    background:rgba(18,22,32,.85);
+    backdrop-filter:blur(12px);
+    color:#fff;
+    font-size:21px;
     display:flex;
     align-items:center;
     justify-content:center;
@@ -63,10 +132,8 @@
   /* Paneles flotantes desplegables */
   .pop-panel{
     position:fixed;
-    top:72px;
-    right:14px;
-    width:min(420px,94vw);
-    max-height:calc(100% - 90px);
+    width:min(400px,92vw);
+    max-height:calc(100% - 140px);
     overflow-y:auto;
     overflow-x:hidden;
     background:rgba(14,18,28,.96);
@@ -80,6 +147,9 @@
     -webkit-overflow-scrolling:touch;
   }
   .pop-panel.open{display:block}
+  .pop-panel.left-panel{top:128px;left:16px}
+  .pop-panel.right-panel{top:72px;right:16px}
+  
   .pop-panel h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.65;margin:16px 0 8px;font-weight:700}
   .pop-panel h3:first-child{margin-top:0}
   
@@ -109,6 +179,16 @@
   #rev:active,#rev.down{background:rgba(255,60,60,.6);border-color:#ff9e94;box-shadow:0 0 35px rgba(255,60,60,.65);transform:scale(0.96)}
   #rev[hidden]{display:none}
 
+  /* Modo Inmersivo (Doble Click): oculta botones, estado, acelerar neutro y descripción técnica */
+  body.clean-mode .btn-group,
+  body.clean-mode .left-group,
+  body.clean-mode #rev,
+  body.clean-mode #engname,
+  body.clean-mode #engspec,
+  body.clean-mode .pop-panel{
+    display:none !important;
+  }
+
   #start{position:fixed;inset:0;background:radial-gradient(circle at center, #0c1220 0%, #04060a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:26px;text-align:center;z-index:10}
   #start h1{font-size:clamp(28px,4.5vw,48px);font-weight:900;letter-spacing:-.01em;background:linear-gradient(135deg,#fff,#7ec8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
   #start p{max-width:580px;opacity:.8;line-height:1.6;font-size:clamp(14px,1.8vw,18px)}
@@ -127,38 +207,47 @@
   <div id="accel">&nbsp;</div>
 </div>
 
-<div id="status">GPS: sin iniciar</div>
+<!-- Botones superiores izquierdos (Motor y Visual) -->
+<div class="left-group">
+  <button id="engbtn" class="pill-btn" aria-label="Seleccionar motor">
+    <span class="pill-tag">Motor</span>
+    <span id="engbtn-label" class="pill-val">V8 muscle</span>
+  </button>
+  <button id="themebtn" class="pill-btn" aria-label="Estilo visual">
+    <span class="pill-tag">Visual</span>
+    <span id="themebtn-label" class="pill-val">Hiperespacio</span>
+  </button>
+  <div id="status">GPS: sin iniciar</div>
+</div>
 
-<!-- Botones circulares superiores -->
+<!-- Botones superiores derechos (Pantalla completa y Ajustes) -->
 <div class="btn-group">
   <button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
-  <button id="themebtn" class="top-btn" aria-label="Temas visuales" title="Estilos visuales">🎨</button>
-  <button id="engbtn" class="top-btn" aria-label="Motores" title="Seleccionar motor">🚗</button>
   <button id="gearbtn" class="top-btn" aria-label="Ajustes" title="Ajustes">⚙</button>
 </div>
 
 <button id="rev" hidden>ACELERAR<br><span style="font-size:11px;opacity:.85;font-weight:normal">(neutro)</span></button>
 
-<!-- Panel Desplegable: Motores -->
-<div id="panel-engine" class="pop-panel">
-  <h3>🚗 Seleccionar Motor</h3>
+<!-- Panel Desplegable Izquierdo: Motores -->
+<div id="panel-engine" class="pop-panel left-panel">
+  <h3>Seleccionar Motor</h3>
   <div class="eng" id="engbtns"></div>
 </div>
 
-<!-- Panel Desplegable: Temas Visuales -->
-<div id="panel-theme" class="pop-panel">
-  <h3>🎨 Estilo Visual</h3>
+<!-- Panel Desplegable Izquierdo: Temas Visuales -->
+<div id="panel-theme" class="pop-panel left-panel">
+  <h3>Estilo Visual</h3>
   <label class="row"><input type="checkbox" id="fxon" checked> Efectos visuales activados</label>
   <div class="themes-grid">
-    <button class="th on" data-th="hyperspace">✨ Hiperespacio</button>
-    <button class="th" data-th="cyber_grid">⚡ Cyber Grid</button>
-    <button class="th" data-th="vortex">🌀 Vórtice Sónico</button>
-    <button class="th" data-th="minimal">🌙 Minimal OLED</button>
+    <button class="th on" data-th="hyperspace">Hiperespacio</button>
+    <button class="th" data-th="cyber_grid">Cyber Grid</button>
+    <button class="th" data-th="vortex">Vórtice Sónico</button>
+    <button class="th" data-th="minimal">Minimal OLED</button>
   </div>
 </div>
 
-<!-- Panel Desplegable: Ajustes Generales -->
-<div id="panel-settings" class="pop-panel">
+<!-- Panel Desplegable Derecho: Ajustes Generales -->
+<div id="panel-settings" class="pop-panel right-panel">
   <h3>Sonido</h3>
   <div class="eng">
     <button class="v on" data-v="0">Cabina</button>
@@ -498,8 +587,16 @@ const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
 const CORE = document.getElementById('core').textContent;
 const {EngineDSP, PROFILES} = new Function(CORE + ';return {EngineDSP:EngineDSP,PROFILES:PROFILES};')();
 
+/* Nombres legibles de temas */
+const THEME_LABELS = {
+  hyperspace: 'Hiperespacio',
+  cyber_grid: 'Cyber Grid',
+  vortex: 'Vórtice Sónico',
+  minimal: 'Minimal OLED'
+};
+
 /* ---------- Persistencia Local (localStorage) ---------- */
-const PREFS_KEY = 'tesla_hud_user_prefs_v2';
+const PREFS_KEY = 'tesla_hud_user_prefs_v3';
 let cur = 'v8';
 let vol = 0.6, unit = 'kmh', view = 0;
 // Por defecto desactivados según solicitud:
@@ -609,10 +706,16 @@ function applyEngine(){
   const p = PROFILES[cur];
   $('engname').textContent = p.name;
   $('engspec').textContent = p.spec;
+  $('engbtn-label').textContent = p.label;
   document.querySelectorAll('button.e').forEach(b=>b.classList.toggle('on',b.dataset.k===cur));
   gear = 0; shiftT = 0; limiter = false;
   rpmSim = p.ev ? 0 : p.idle;
   send({t:'cfg',k:cur});
+}
+
+function updateThemeUI() {
+  $('themebtn-label').textContent = THEME_LABELS[vfxTheme] || 'Hiperespacio';
+  document.querySelectorAll('button.th').forEach(b => b.classList.toggle('on', b.dataset.th === vfxTheme));
 }
 
 /* ---------- Simulación del motor y la caja ---------- */
@@ -703,7 +806,6 @@ let vortexOffset = 0;
 
 function drawVisuals(dt, now, accelVal) {
   const level = clamp(shown/200, 0, 1);
-  // Efecto suave de aceleración calibrado
   const accelBoost = clamp(Math.max(0, accelVal) / 3.0, 0, 1.2);
   
   // Tonalidad suave: de cian a azul-violeta / naranja según velocidad
@@ -744,7 +846,7 @@ function drawVisuals(dt, now, accelVal) {
     drawHyperspace(cx, cy, level, accelBoost, targetHue, dt, now);
   }
 
-  // Destello sutil de corte y cambio (solo si el usuario lo activa)
+  // Destello sutil de corte y cambio
   if (flashFx) {
     if (shiftFlashT > 0) {
       shiftFlashT -= dt;
@@ -761,7 +863,7 @@ function drawVisuals(dt, now, accelVal) {
 
 /* 1. ✨ TEMA HIPERESPACIO EQUILIBRADO */
 function drawHyperspace(cx, cy, level, accelBoost, hue, dt, now) {
-  // Fondo oscuro que preserva la lectura limpia del número en el centro
+  // Fondo oscuro que mantiene oscuro el centro detrás de los números
   ctx.fillStyle = `rgba(4, 6, 10, ${.42 - level*.2})`;
   ctx.fillRect(0, 0, W, H);
 
@@ -788,11 +890,11 @@ function drawHyperspace(cx, cy, level, accelBoost, hue, dt, now) {
     ctx.stroke();
   }
 
-  // Resplandor radial SOLO en el perímetro exterior (el centro se mantiene oscuro para legibilidad)
+  // Resplandor radial suave en el perímetro exterior
   if (level > 0.15) {
     const g = ctx.createRadialGradient(cx, cy, maxR * 0.38, cx, cy, maxR);
-    g.addColorStop(0, 'rgba(0,0,0,0)'); // Centro 100% transparente: números limpios
-    g.addColorStop(1, `hsla(${hue}, 100%, 50%, ${level * 0.26})`);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); // Centro transparente
+    g.addColorStop(1, `hsla(${hue}, 100%, 50%, ${level * 0.25})`);
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
@@ -1035,23 +1137,22 @@ $('gearbtn').onclick = () => togglePanel('settings');
 
 // Cerrar paneles al tocar fuera
 window.addEventListener('pointerdown', e => {
-  if (e.target.closest('.pop-panel') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
+  if (e.target.closest('.pop-panel') || e.target.closest('.pill-btn') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
   Object.values(panels).forEach(p => {
     p.panel.classList.remove('open');
     p.btn.classList.remove('active');
   });
 });
 
-/* Modo Inmersivo: Doble toque en pantalla limpia oculta/muestra botones */
+/* Modo Inmersivo: Doble toque en pantalla oculta botones, estado, botón neutro y descripción técnica */
 let cleanMode = false;
 let lastTapT = 0;
 window.addEventListener('pointerup', e => {
-  if (e.target.closest('.pop-panel') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
+  if (e.target.closest('.pop-panel') || e.target.closest('.pill-btn') || e.target.closest('.top-btn') || e.target.closest('#rev') || e.target.closest('#start')) return;
   const now = performance.now();
   if (now - lastTapT < 380) {
     cleanMode = !cleanMode;
-    document.querySelector('.btn-group').style.display = cleanMode ? 'none' : 'flex';
-    $('status').style.display = cleanMode ? 'none' : 'block';
+    document.body.classList.toggle('clean-mode', cleanMode);
   }
   lastTapT = now;
 });
@@ -1067,7 +1168,7 @@ Object.keys(PROFILES).forEach(k=>{
     cur=k;
     applyEngine();
     savePreferences();
-    togglePanel('engine'); // Cierra el panel al seleccionar
+    togglePanel('engine');
   };
   eb.appendChild(b);
 });
@@ -1077,8 +1178,9 @@ document.querySelectorAll('button.th').forEach(b => {
   b.classList.toggle('on', b.dataset.th === vfxTheme);
   b.onclick = () => {
     vfxTheme = b.dataset.th;
-    document.querySelectorAll('button.th').forEach(x => x.classList.toggle('on', x === b));
+    updateThemeUI();
     savePreferences();
+    togglePanel('theme');
   };
 });
 
@@ -1134,12 +1236,13 @@ $('startbtn').onclick=async()=>{
   }
   startGPS();
   try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch(e){}
-  started = true; startT = 0; applyEngine();
+  started = true; startT = 0; applyEngine(); updateThemeUI();
   $('start').style.display='none';
 };
 
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && ac && ac.state==='suspended') ac.resume(); });
 applyEngine();
+updateThemeUI();
 </script>
 </body>
 </html>
