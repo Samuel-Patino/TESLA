@@ -209,25 +209,55 @@ function toast(msg, ms = 3200) {
 }
 
 /* ---------------------------------------------------------------------
-   Mapa
+   Mapa (100% libre, sin API key ni marcas de agua)
    --------------------------------------------------------------------- */
 const startCenter = prefs.lastPos || DEFAULT_CENTER;
 const map = L.map('map', { zoomControl: false, zoomSnap: 0.25, attributionControl: true })
   .setView([startCenter.lat, startCenter.lon], 15);
 map.attributionControl.setPrefix(false);
 
-const TILES = {
-  dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-  light: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png'
-};
-let tileLayer = null;
+const tileGroup = L.layerGroup().addTo(map);
+
 function applyMapStyle() {
-  if (tileLayer) map.removeLayer(tileLayer);
-  tileLayer = L.tileLayer(TILES[prefs.mapStyle] || TILES.dark, {
-    maxZoom: 20, subdomains: 'abcd',
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> © <a href="https://carto.com/">CARTO</a>'
-  }).addTo(map);
-  document.body.classList.toggle('light', prefs.mapStyle === 'light');
+  tileGroup.clearLayers();
+  const style = prefs.mapStyle || 'dark';
+
+  if (style === 'osm' || style === 'light') {
+    const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxNativeZoom: 19,
+      maxZoom: 20,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    });
+    tileGroup.addLayer(osm);
+    document.body.classList.add('light');
+  } else if (style === 'sat') {
+    const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 18,
+      maxZoom: 20,
+      attribution: '© Esri World Imagery'
+    });
+    const ref = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 18,
+      maxZoom: 20
+    });
+    tileGroup.addLayer(sat);
+    tileGroup.addLayer(ref);
+    document.body.classList.remove('light');
+  } else {
+    // dark (predeterminado para Tesla)
+    const base = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 18,
+      maxZoom: 20,
+      attribution: '© OpenStreetMap, Esri'
+    });
+    const ref = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 18,
+      maxZoom: 20
+    });
+    tileGroup.addLayer(base);
+    tileGroup.addLayer(ref);
+    document.body.classList.remove('light');
+  }
 }
 applyMapStyle();
 
