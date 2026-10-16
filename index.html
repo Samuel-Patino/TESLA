@@ -3,46 +3,58 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Velocidad y Motor</title>
+<title>Velocidad y Motor · Tesla HUD</title>
 <style>
-  :root{--hue:200}
+  :root{--hue:200;--glow:hsl(var(--hue) 100% 55% / .8)}
   *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
   html,body{height:100%;background:#04060a;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none}
   canvas{position:fixed;inset:0;width:100%;height:100%;display:block}
-  #hud{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  #hud{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;z-index:2;transition:transform .1s ease-out}
   #speed{font-size:clamp(90px,26vw,360px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em;
-    color:hsl(var(--hue) 100% 70%);text-shadow:0 0 30px hsl(var(--hue) 100% 55% / .8),0 0 90px hsl(var(--hue) 100% 50% / .5)}
-  #unit{font-size:clamp(18px,3.2vw,40px);letter-spacing:.3em;opacity:.8;margin-top:.2em}
-  #accel{margin-top:.8em;font-size:clamp(14px,2.2vw,26px);opacity:.9;min-height:1.4em}
-  #bottom{position:fixed;left:0;right:0;bottom:0;padding:18px 24px 22px;background:linear-gradient(transparent,rgba(0,0,0,.65));pointer-events:none}
-  #engname{font-size:clamp(18px,3vw,34px);font-weight:700}
-  #engdesc{font-size:clamp(13px,1.8vw,20px);opacity:.75;margin-top:2px}
-  #engspec{font-size:clamp(12px,1.5vw,16px);opacity:.5;margin-top:2px;letter-spacing:.04em}
+    color:hsl(var(--hue) 100% 70%);text-shadow:0 0 35px var(--glow),0 0 95px hsl(var(--hue) 100% 50% / .55);transition:color .12s, text-shadow .12s, transform .08s}
+  #unit{font-size:clamp(18px,3.2vw,40px);letter-spacing:.3em;opacity:.8;margin-top:.2em;text-shadow:0 0 16px var(--glow)}
+  #accel{margin-top:.8em;font-size:clamp(14px,2.2vw,26px);opacity:.95;min-height:1.4em;font-weight:600;letter-spacing:.04em;text-shadow:0 0 12px rgba(0,0,0,.9)}
+  #bottom{position:fixed;left:0;right:0;bottom:0;padding:18px 24px 22px;background:linear-gradient(transparent,rgba(0,0,0,.75));pointer-events:none;z-index:3}
+  #engname{font-size:clamp(18px,3vw,34px);font-weight:700;text-shadow:0 2px 8px rgba(0,0,0,.8)}
+  #engdesc{font-size:clamp(13px,1.8vw,20px);opacity:.8;margin-top:2px}
+  #engspec{font-size:clamp(12px,1.5vw,16px);opacity:.55;margin-top:2px;letter-spacing:.04em}
   #rpmrow{display:flex;align-items:center;gap:14px;margin-top:12px}
-  #gear{font-size:clamp(20px,3vw,36px);font-weight:800;min-width:2.4ch;text-align:center}
-  #rpmbar{flex:1;height:12px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden}
-  #rpmfill{height:100%;width:0;background:linear-gradient(90deg,#2bd4ff,#ffd43b 70%,#ff3b3b);border-radius:8px}
-  #rpmtxt{font-size:clamp(14px,2vw,22px);min-width:8ch;text-align:right;font-variant-numeric:tabular-nums}
-  #status{position:fixed;top:12px;left:16px;font-size:13px;opacity:.7}
-  #gearbtn{position:fixed;top:8px;right:12px;width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(20,24,32,.7);color:#fff;font-size:24px}
-  #panel{position:fixed;top:66px;right:12px;width:min(380px,92vw);max-height:calc(100% - 80px);overflow:auto;background:rgba(14,18,26,.95);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:16px;display:none;z-index:5}
+  #gear{font-size:clamp(20px,3vw,36px);font-weight:800;min-width:2.4ch;text-align:center;text-shadow:0 0 18px var(--glow)}
+  #rpmbar{flex:1;height:14px;border-radius:8px;background:rgba(255,255,255,.12);overflow:hidden;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+  #rpmfill{height:100%;width:0;background:linear-gradient(90deg,#2bd4ff,#ffd43b 70%,#ff3b3b);border-radius:8px;box-shadow:0 0 12px #2bd4ff88}
+  #rpmtxt{font-size:clamp(14px,2vw,22px);min-width:8ch;text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+  #status{position:fixed;top:16px;left:18px;font-size:13px;opacity:.75;background:rgba(10,14,22,.65);backdrop-filter:blur(6px);padding:6px 12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);z-index:4}
+  
+  .top-btn{position:fixed;top:12px;width:52px;height:52px;border-radius:50%;border:1px solid rgba(255,255,255,.25);background:rgba(18,22,32,.75);backdrop-filter:blur(10px);color:#fff;font-size:23px;display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:6;touch-action:manipulation;transition:transform .12s, background .15s, border-color .15s}
+  .top-btn:active{transform:scale(0.92);background:rgba(13,110,253,.5);border-color:#5aa0ff}
+  #gearbtn{right:16px}
+  #fsbtn{right:76px;font-size:21px}
+
+  #panel{position:fixed;top:72px;right:14px;width:min(420px,94vw);max-height:calc(100% - 90px);overflow-y:auto;overflow-x:hidden;background:rgba(14,18,28,.96);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:18px;display:none;z-index:7;box-shadow:0 12px 40px rgba(0,0,0,.8)}
   #panel.open{display:block}
-  #panel h3{font-size:13px;letter-spacing:.12em;text-transform:uppercase;opacity:.6;margin:14px 0 8px}
+  #panel h3{font-size:12px;letter-spacing:.14em;text-transform:uppercase;opacity:.65;margin:16px 0 8px;font-weight:700}
   #panel h3:first-child{margin-top:0}
-  .eng{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  button.e,button.u,button.v{padding:14px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.2);background:#1b212c;color:#fff;font-size:15px}
-  button.e.on,button.u.on,button.v.on{background:#0d6efd;border-color:#5aa0ff}
-  input[type=range]{width:100%;height:36px}
-  label.row{display:flex;align-items:center;gap:10px;font-size:15px;padding:6px 0}
-  label.row input{width:22px;height:22px}
-  #rev{position:fixed;right:20px;bottom:150px;width:120px;height:120px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(13,110,253,.35);color:#fff;font-size:15px;font-weight:700;letter-spacing:.06em;touch-action:none;z-index:4}
-  #rev:active,#rev.down{background:rgba(255,80,60,.55);border-color:#ff8a7a}
+  .eng,.themes-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  button.e,button.u,button.v,button.th{padding:13px 8px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:#1a202d;color:#fff;font-size:14px;font-weight:600;cursor:pointer;transition:all .15s ease}
+  button.e:active,button.u:active,button.v:active,button.th:active{transform:scale(0.96)}
+  button.e.on,button.u.on,button.v.on,button.th.on{background:#0d6efd;border-color:#5aa0ff;box-shadow:0 0 14px rgba(13,110,253,.55)}
+  button.wide-btn{width:100%;margin-top:10px;padding:14px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:#222a38;color:#fff;font-size:15px;font-weight:700;cursor:pointer}
+  button.wide-btn:active{background:#0d6efd}
+  input[type=range]{width:100%;height:38px;accent-color:#0d6efd}
+  label.row{display:flex;align-items:center;gap:12px;font-size:15px;padding:7px 0;cursor:pointer}
+  label.row input{width:22px;height:22px;accent-color:#0d6efd}
+
+  #rev{position:fixed;right:22px;bottom:155px;width:125px;height:125px;border-radius:50%;border:2px solid rgba(255,255,255,.35);background:rgba(13,110,253,.38);backdrop-filter:blur(8px);color:#fff;font-size:14px;font-weight:800;letter-spacing:.06em;touch-action:none;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 0 25px rgba(13,110,253,.35)}
+  #rev:active,#rev.down{background:rgba(255,60,60,.6);border-color:#ff9e94;box-shadow:0 0 35px rgba(255,60,60,.65);transform:scale(0.96)}
   #rev[hidden]{display:none}
-  #start{position:fixed;inset:0;background:#04060a;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;text-align:center;z-index:10}
-  #start h1{font-size:clamp(26px,4vw,44px)}
-  #start p{max-width:560px;opacity:.75;line-height:1.5}
-  #startbtn{padding:20px 48px;font-size:22px;font-weight:700;border-radius:16px;border:0;background:#0d6efd;color:#fff}
+
+  #start{position:fixed;inset:0;background:radial-gradient(circle at center, #0c1220 0%, #04060a 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:26px;text-align:center;z-index:10}
+  #start h1{font-size:clamp(28px,4.5vw,48px);font-weight:900;letter-spacing:-.01em;background:linear-gradient(135deg,#fff,#7ec8ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+  #start p{max-width:580px;opacity:.8;line-height:1.6;font-size:clamp(14px,1.8vw,18px)}
+  #startbtn{padding:20px 52px;font-size:22px;font-weight:800;border-radius:18px;border:0;background:linear-gradient(135deg,#0d6efd,#004bb5);color:#fff;box-shadow:0 8px 30px rgba(13,110,253,.5);cursor:pointer;transition:transform .12s}
+  #startbtn:active{transform:scale(0.95)}
   #msg{color:#ffb74d;font-size:14px;min-height:1.2em}
+  .hint{font-size:12px;opacity:.55;margin-top:6px}
 </style>
 </head>
 <body>
@@ -55,31 +67,49 @@
 </div>
 
 <div id="status">GPS: sin iniciar</div>
-<button id="gearbtn" aria-label="Ajustes">⚙</button>
-<button id="rev" hidden>ACELERAR<br>(neutro)</button>
+<button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+<button id="gearbtn" class="top-btn" aria-label="Ajustes" title="Ajustes">⚙</button>
+<button id="rev" hidden>ACELERAR<br><span style="font-size:11px;opacity:.85;font-weight:normal">(neutro)</span></button>
 
 <div id="panel">
+  <h3>Efectos Visuales</h3>
+  <label class="row"><input type="checkbox" id="fxon" checked> Efectos visuales activados</label>
+  <div class="themes-grid">
+    <button class="th on" data-th="hyperspace">✨ Hiperespacio</button>
+    <button class="th" data-th="cyber_grid">⚡ Cyber Grid</button>
+    <button class="th" data-th="vortex">🌀 Vórtice Sónico</button>
+    <button class="th" data-th="minimal">🌙 Minimal OLED</button>
+  </div>
+  <label class="row"><input type="checkbox" id="accelfx" checked> Sensación de aceleración (G-Force & Warp)</label>
+  <label class="row"><input type="checkbox" id="flashfx" checked> Destello de corte y cambio de marcha</label>
+
+  <h3>Pantalla y Controles</h3>
+  <button class="wide-btn" id="panelfsbtn">⛶ Entrar en Pantalla Completa</button>
+  <p class="hint">Tip: Toca dos veces la pantalla mientras conduces para ocultar los botones (Modo Inmersivo).</p>
+
   <h3>Motor</h3>
   <div class="eng" id="engbtns"></div>
+
   <h3>Sonido</h3>
   <div class="eng">
     <button class="v on" data-v="0">Cabina</button>
     <button class="v" data-v="1">Escape (exterior)</button>
   </div>
   <label class="row"><input type="checkbox" id="amb" checked> Viento y rodadura</label>
+
   <h3>Volumen</h3>
   <input type="range" id="vol" min="0" max="100" value="60">
+
   <h3>Unidad</h3>
   <div class="eng">
     <button class="u on" data-u="kmh">km/h</button>
     <button class="u" data-u="mph">mph</button>
   </div>
+
   <h3>Pruebas (sin GPS)</h3>
   <label class="row"><input type="checkbox" id="demo"> Demo automática: acelera y frena</label>
   <label class="row"><input type="checkbox" id="test"> Simular velocidad a mano</label>
   <input type="range" id="tspeed" min="0" max="260" value="0">
-  <h3>Opciones</h3>
-  <label class="row"><input type="checkbox" id="fxon" checked> Efectos visuales</label>
 </div>
 
 <div id="bottom">
@@ -95,9 +125,9 @@
 
 <div id="start">
   <h1>Velocidad y Motor</h1>
-  <p>Mide tu velocidad con el GPS del navegador, muestra efectos que crecen con ella y simula el sonido de un motor según aceleres o frenes. Acepta el permiso de ubicación cuando lo pida.</p>
-  <p>Configura todo con el vehículo estacionado. En ⚙ hay una demo automática para escuchar los motores sin moverte, y un botón para acelerar en neutro.</p>
-  <button id="startbtn">Iniciar</button>
+  <p>Mide tu velocidad con el GPS del navegador, genera efectos visuales dinámicos de alta velocidad y reproduce sonido físico realista de motor. Optimizado para el navegador de tu Tesla Model Y.</p>
+  <p>Tus ajustes (motor, volumen, efectos y unidad) se guardan automáticamente. Toca dos veces la pantalla para alternar el modo inmersivo limpio.</p>
+  <button id="startbtn">Iniciar HUD</button>
   <div id="msg"></div>
 </div>
 
@@ -283,7 +313,6 @@ class EngineDSP{
         if(knockG>0&&d<40)kenv+=this.ea[k]*Math.exp(-d/ka);
       }
       s0*=load;s1*=load;
-      // petardeos al desacelerar
       if(pops>0){
         var pe=pops*clamp(1-thr*8,0,1)*clamp((rpm/c.red-0.28)*2.2,0,1);
         if(pe>0&&this.rnd()<pe*1.3/sr)this.pop=0.6+0.7*this.rnd();
@@ -295,36 +324,27 @@ class EngineDSP{
         this.popPh+=TWO_PI*58/sr;
         pv=this.pop*(this.popLP*1.6+Math.sin(this.popPh)*0.5);
       }else this.pop=0;
-      // resonancia de los escapes (un tubo por banco)
       var wp=this.wp;
       var d0=this.bf0[(wp-D0)&8191],d1=this.bf1[(wp-D1)&8191];
       this.lp0+=lc*(d0-this.lp0);this.lp1+=lc*(d1-this.lp1);
       var y0=s0+pv+fb*this.lp0,y1=s1+pv*0.8+fb*this.lp1;
       this.bf0[wp]=y0;this.bf1[wp]=y1;this.wp=(wp+1)&8191;
-      // resonancias de carrocería/cabina
       var mono=(y0+y1)*0.5,body=0;
       for(var j=0;j<nb;j++)body+=this.bodyG[j]*bq(this.bodyF[j],mono);
       var l=y0*0.8+y1*0.2+body*bodyMix,r=y1*0.8+y0*0.2+body*bodyMix;
-      // quita la continua
       var hl=l-this.hxl+0.998*this.hyl;this.hxl=l;this.hyl=hl;l=hl;
       var hr=r-this.hxr+0.998*this.hyr;this.hxr=r;this.hyr=hr;r=hr;
-      // saturación suave
       l*=drive;r*=drive;l=l/(1+Math.abs(l));r=r/(1+Math.abs(r));
       this.gS+=(gate-this.gS)*0.004;var gm=0.3+0.7*this.gS;l*=gm;r*=gm;
       var nz=this.rnd()*2-1,lay=0,lay2=0,lay3=0;
-      // ruido de combustión
       lay+=bq(this.barkF,nz*env)*barkG*(0.25+0.75*thr)*3;
       if(knockG>0)lay+=bq(this.knockF,nz*kenv)*knockG*(0.5+0.5*thr)*2.5;
-      // admisión
       this.inLP+=0.06*(nz-this.inLP);
       lay+=bq(this.intF,this.inLP*3)*intG*(0.12+0.88*thr)*rn2*2;
       l+=lay;r+=lay;
-      // filtro pasabajos de 2 polos (cabina = más apagado, escape = más brillante)
       this.f0+=lpa*(l-this.f0);this.f1+=lpa*(this.f0-this.f1);l=this.f1;
       this.f2+=lpa*(r-this.f2);this.f3+=lpa*(this.f2-this.f3);r=this.f3;
-      // crujido de los petardeos
       lay2+=pv*0.35;
-      // turbo
       if(turb>0){
         var tgt=thr*clamp((rpm-c.red*0.3)/(c.red*0.35),0,1);
         this.spool+=(tgt-this.spool)*(tgt>this.spool?this.ksU:this.ksD);
@@ -336,12 +356,10 @@ class EngineDSP{
         lay2+=(Math.sin(this.tPh)*0.5+Math.sin(2*this.tPh)*0.15)*turb*0.07*sl;
         if(this.bov>0.01)lay2+=bq(this.bovF,nz)*this.bov*turb*0.6;
       }
-      // zumbido de la transmisión
       if(c.whine>0&&this.spd>3){
         this.whPh+=TWO_PI*(this.spd*3.4)/sr;if(this.whPh>TWO_PI)this.whPh-=TWO_PI;
         lay2+=(Math.sin(this.whPh)+0.4*Math.sin(2*this.whPh))*c.whine*0.12*(0.3+0.7*thr);
       }
-      // motor de arranque
       this.stA+=(tg.st-this.stA)*0.003;
       if(this.stA>0.01){
         this.stPh+=(150+20*Math.sin(this.t*70))/sr;if(this.stPh>1)this.stPh-=1;
@@ -350,7 +368,6 @@ class EngineDSP{
       }
       lay2=lay2*(view?1:0.6)+lay3;
       l=(l+lay2)*c.gain;r=(r+lay2)*c.gain;
-      // viento y rodadura
       if(tg.amb>0){
         this.wLP+=wA*((this.rnd()*2-1)-this.wLP);
         var am=this.wLP*wLev*3+bq(this.tireF,this.rnd()*2-1)*tLev;
@@ -404,17 +421,56 @@ const clamp = (x,a,b) => Math.max(a,Math.min(b,x));
 const CORE = document.getElementById('core').textContent;
 const {EngineDSP, PROFILES} = new Function(CORE + ';return {EngineDSP:EngineDSP,PROFILES:PROFILES};')();
 
-/* ---------- Estado ---------- */
+/* ---------- Persistencia Local (localStorage) ---------- */
+const PREFS_KEY = 'tesla_hud_user_prefs_v1';
 let cur = 'v8';
-let gpsSpeed = 0, shown = 0, lastShown = 0, accel = 0, throttle = 0;
-let lastFix = 0, started = false, unit = 'kmh', vol = .6, view = 0, amb = 1;
-let gear = 0, rpmSim = 800, shiftT = 0, limiter = false, hold = 0, startT = 99;
-let testMode = false, testSpeed = 0, fxOn = true, demoOn = false, demoT = 0;
+let vol = 0.6, unit = 'kmh', view = 0, amb = 1;
+let fxOn = true, vfxTheme = 'hyperspace', accelFx = true, flashFx = true;
 
-/* ---------- GPS (Geolocation API del navegador, sin servicios externos) ---------- */
+function loadPreferences() {
+  try {
+    const raw = localStorage.getItem(PREFS_KEY);
+    if (!raw) return;
+    const p = JSON.parse(raw);
+    if (p.cur && PROFILES[p.cur]) cur = p.cur;
+    if (typeof p.vol === 'number') vol = clamp(p.vol, 0, 1);
+    if (p.unit === 'kmh' || p.unit === 'mph') unit = p.unit;
+    if (typeof p.view === 'number') view = p.view ? 1 : 0;
+    if (typeof p.amb === 'number') amb = p.amb ? 1 : 0;
+    if (typeof p.fxOn === 'boolean') fxOn = p.fxOn;
+    if (['hyperspace','cyber_grid','vortex','minimal'].includes(p.vfxTheme)) vfxTheme = p.vfxTheme;
+    if (typeof p.accelFx === 'boolean') accelFx = p.accelFx;
+    if (typeof p.flashFx === 'boolean') flashFx = p.flashFx;
+  } catch(e) {
+    console.warn('No se pudo cargar localStorage:', e);
+  }
+}
+
+function savePreferences() {
+  try {
+    const data = { cur, vol, unit, view, amb, fxOn, vfxTheme, accelFx, flashFx };
+    localStorage.setItem(PREFS_KEY, JSON.stringify(data));
+  } catch(e) {
+    console.warn('No se pudo guardar en localStorage:', e);
+  }
+}
+
+loadPreferences();
+
+/* ---------- Estado Dinámico ---------- */
+let gpsSpeed = 0, shown = 0, lastShown = 0, accel = 0, throttle = 0;
+let lastFix = 0, started = false;
+let gear = 0, rpmSim = 800, shiftT = 0, limiter = false, hold = 0, startT = 99;
+let testMode = false, testSpeed = 0, demoOn = false, demoT = 0;
+let shiftFlashT = 0; // Temporizador para destello visual de cambio de marcha
+
+/* ---------- GPS (Geolocation API) ---------- */
 let prev = null;
-function hav(a,b,c,d){const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b);
-  const h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h));}
+function hav(a,b,c,d){
+  const R=6371000,t=x=>x*Math.PI/180,dl=t(c-a),dn=t(d-b);
+  const h=Math.sin(dl/2)**2+Math.cos(t(a))*Math.cos(t(c))*Math.sin(dn/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
 function onPos(p){
   const c = p.coords;
   if (c.accuracy > 100) return;
@@ -459,7 +515,6 @@ async function initAudio(){
     } catch(e) { ok = false; }
   }
   if (!ok) {
-    // respaldo para navegadores sin AudioWorklet
     const dsp = new EngineDSP(ac.sampleRate);
     const sp = ac.createScriptProcessor(2048,0,2);
     sp.onaudioprocess = e => dsp.render(e.outputBuffer.getChannelData(0), e.outputBuffer.getChannelData(1), e.outputBuffer.length);
@@ -485,7 +540,6 @@ function updateEngine(dt, now){
   const p = PROFILES[cur], spd = shown;
   startT += dt;
 
-  // posición del acelerador a partir de la aceleración medida
   const drag = 0.1 + 0.22*Math.pow(clamp(spd/180,0,1),2);
   let tt;
   if (spd < 2) tt = hold ? 1 : 0.04;
@@ -506,8 +560,11 @@ function updateEngine(dt, now){
     const vm = p.vmax;
     let rpmGear = p.red*spd/vm[gear];
     if (shiftT <= 0 && startT > 1.7) {
-      if (gear < vm.length-1 && rpmGear > p.red*(0.72+0.2*throttle)) { gear++; shiftT = p.shift; }
-      else if (gear > 0 && rpmGear < p.red*0.33) { gear--; shiftT = p.shift*0.6; }
+      if (gear < vm.length-1 && rpmGear > p.red*(0.72+0.2*throttle)) {
+        gear++; shiftT = p.shift; shiftFlashT = 0.16;
+      } else if (gear > 0 && rpmGear < p.red*0.33) {
+        gear--; shiftT = p.shift*0.6;
+      }
     }
     rpmGear = p.red*spd/vm[gear];
     const inGear = spd >= 2 && shiftT <= 0;
@@ -537,48 +594,350 @@ function updateEngine(dt, now){
   send({t:'p', rpm:rpmOut, thr:starter?0.2:throttle, speed:spd, lim:limiter?1:0, regen:regen, st:starter, view:view, amb:amb});
 }
 
-/* ---------- Visuales ---------- */
+/* ---------- Visuales y Motores de Render ---------- */
 const cv = $('fx'), ctx = cv.getContext('2d');
 let W=0,H=0,maxR=0,dpr=1;
-function resize(){dpr=window.devicePixelRatio||1;W=cv.width=innerWidth*dpr;H=cv.height=innerHeight*dpr;maxR=Math.hypot(W,H)/2;}
+function resize(){
+  dpr=window.devicePixelRatio||1;
+  W=cv.width=innerWidth*dpr;
+  H=cv.height=innerHeight*dpr;
+  maxR=Math.hypot(W,H)/2;
+}
 addEventListener('resize',resize); resize();
-const P = [];
-function mk(p,init){p.a=Math.random()*Math.PI*2;p.r=init?Math.random()*maxR:Math.random()*maxR*.12+10;p.s=.5+Math.random()*1.5;p.l=.5+Math.random();return p;}
-for (let i=0;i<240;i++) P.push(mk({},true));
 
-function draw(dt){
-  const level = clamp(shown/200,0,1);
-  const hue = 200 - 200*level;
-  document.documentElement.style.setProperty('--hue', hue);
-  ctx.setTransform(1,0,0,1,0,0);
-  ctx.fillStyle = `rgba(4,6,10,${.4 - level*.25})`;
-  ctx.fillRect(0,0,W,H);
-  if (!fxOn) return;
-  const sh = level > .5 ? (level-.5)*5*dpr : 0;
-  ctx.setTransform(1,0,0,1,(Math.random()-.5)*sh,(Math.random()-.5)*sh);
-  const cx = W/2, cy = H/2;
-  ctx.lineCap = 'round';
-  for (const p of P){
-    const k = p.r/maxR;
-    p.r += (.04 + level*1.7) * p.s * maxR * (.25 + k) * dt;
-    if (p.r > maxR) mk(p,false);
-    const len = (3 + level*level*maxR*.38) * p.l * (.3 + k);
-    const x1 = cx + Math.cos(p.a)*p.r, y1 = cy + Math.sin(p.a)*p.r;
-    const x0 = cx + Math.cos(p.a)*(p.r-len), y0 = cy + Math.sin(p.a)*(p.r-len);
-    ctx.strokeStyle = `hsla(${hue},100%,${60+level*15}%,${.15+.6*k*(.4+level)})`;
-    ctx.lineWidth = (1 + 2.5*k) * dpr * (.5 + level);
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.stroke();
+/* Partículas para Tema Hiperespacio */
+const P = [];
+function mk(p,init){
+  p.a = Math.random()*Math.PI*2;
+  p.r = init ? Math.random()*maxR : Math.random()*maxR*.1 + 8;
+  p.s = .6 + Math.random()*1.8;
+  p.l = .5 + Math.random();
+  p.z = Math.random();
+  return p;
+}
+for (let i=0;i<260;i++) P.push(mk({},true));
+
+/* Rayos de luz radiales para aceleración extrema */
+const WARP_RAYS = [];
+for (let i=0;i<24;i++){
+  WARP_RAYS.push({
+    a: (i / 24) * Math.PI * 2 + (Math.random() - 0.5) * 0.1,
+    len: 0.4 + Math.random() * 0.6,
+    speed: 1 + Math.random() * 1.5,
+    w: 1 + Math.random() * 2.5
+  });
+}
+
+/* Offset para Tema Cyber Grid */
+let gridOffset = 0;
+
+/* Offset para Tema Vórtice Sónico */
+let vortexAngle = 0;
+let vortexOffset = 0;
+
+function drawVisuals(dt, now, accelVal) {
+  const level = clamp(shown/200, 0, 1);
+  const accelBoost = clamp(Math.max(0, accelVal) / 2.2, 0, 2.8); // 0 a 2.8+ según empuje
+  
+  // Tono dinámico: de cian (200) a rojo/magenta intenso en aceleración rápida
+  const targetHue = clamp(200 - 150*level - 70*clamp(accelBoost,0,1), 0, 240);
+  document.documentElement.style.setProperty('--hue', targetHue);
+
+  // Cámara / Vibración G-Force por aceleración, corte o cambio de marcha
+  let shakeX = 0, shakeY = 0;
+  if (accelFx && fxOn) {
+    let shakeIntensity = 0;
+    if (accelVal > 0.5) shakeIntensity += (accelVal - 0.5) * 4.2;
+    if (shiftT > 0 && cur !== 'ev' && cur !== 'ev2') shakeIntensity += 7.5;
+    if (limiter) shakeIntensity += 5.5;
+    shakeIntensity = Math.min(shakeIntensity, 16);
+    if (shakeIntensity > 0) {
+      shakeX = (Math.random() - 0.5) * shakeIntensity * dpr;
+      shakeY = (Math.random() - 0.5) * shakeIntensity * dpr;
+    }
   }
-  if (level > .15){
-    const g = ctx.createRadialGradient(cx,cy,maxR*.35,cx,cy,maxR);
-    g.addColorStop(0,'rgba(0,0,0,0)');
-    g.addColorStop(1,`hsla(${hue},100%,50%,${level*.3})`);
-    ctx.setTransform(1,0,0,1,0,0);
-    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+
+  ctx.setTransform(1, 0, 0, 1, shakeX, shakeY);
+
+  if (!fxOn) {
+    ctx.fillStyle = '#04060a';
+    ctx.fillRect(0, 0, W, H);
+    return;
+  }
+
+  const cx = W / 2, cy = H / 2;
+
+  // Renderizar según el tema elegido
+  if (vfxTheme === 'minimal') {
+    drawMinimal(cx, cy, level, accelBoost, targetHue, dt, now);
+  } else if (vfxTheme === 'cyber_grid') {
+    drawCyberGrid(cx, cy, level, accelBoost, targetHue, dt, now);
+  } else if (vfxTheme === 'vortex') {
+    drawVortex(cx, cy, level, accelBoost, targetHue, dt, now);
+  } else {
+    drawHyperspace(cx, cy, level, accelBoost, targetHue, dt, now);
+  }
+
+  // Destello visual de cambio de marcha / corte
+  if (flashFx) {
+    if (shiftFlashT > 0) {
+      shiftFlashT -= dt;
+      const alpha = clamp(shiftFlashT / 0.16, 0, 1) * 0.28;
+      ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.fillRect(0, 0, W, H);
+    } else if (limiter) {
+      const redPulse = 0.5 + 0.5 * Math.sin(now * 0.035);
+      ctx.fillStyle = `rgba(255, 25, 25, ${0.18 * redPulse})`;
+      ctx.fillRect(0, 0, W, H);
+    }
   }
 }
 
-/* ---------- Bucle principal ---------- */
+/* 1. ✨ TEMA HIPERESPACIO CON WARP BOOST */
+function drawHyperspace(cx, cy, level, accelBoost, hue, dt, now) {
+  // Trail fade con menos opacidad a alta velocidad para crear sensación de estela
+  const fade = clamp(0.42 - level * 0.22 - accelBoost * 0.1, 0.12, 0.5);
+  ctx.fillStyle = `rgba(4, 6, 10, ${fade})`;
+  ctx.fillRect(0, 0, W, H);
+
+  // Efecto de deformación estelar: velocidad base + boost brutal de aceleración
+  const warpMultiplier = 1 + accelBoost * 3.2;
+  const speedScale = (.05 + level * 2.2 + accelBoost * 2.5);
+
+  ctx.lineCap = 'round';
+  for (const p of P) {
+    const k = p.r / maxR;
+    p.r += speedScale * p.s * maxR * (.2 + k) * warpMultiplier * dt;
+    if (p.r > maxR) mk(p, false);
+
+    const len = (4 + (level * level * 0.5 + accelBoost * 0.8) * maxR * 0.45) * p.l * (.3 + k) * (1 + accelBoost * 1.5);
+    const x1 = cx + Math.cos(p.a) * p.r, y1 = cy + Math.sin(p.a) * p.r;
+    const x0 = cx + Math.cos(p.a) * Math.max(0, p.r - len), y0 = cy + Math.sin(p.a) * Math.max(0, p.r - len);
+
+    const light = 60 + level * 20 + accelBoost * 15;
+    const alpha = clamp((.18 + .65 * k * (.4 + level + accelBoost * 0.5)), 0.1, 1);
+    ctx.strokeStyle = `hsla(${hue}, 100%, ${light}%, ${alpha})`;
+    ctx.lineWidth = (1 + 2.8 * k) * dpr * (.5 + level * 0.8 + accelBoost * 0.6);
+
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  // Rayos hiperlumínicos que disparan del centro cuando se pisa a fondo
+  if (accelBoost > 0.4 || level > 0.6) {
+    const rayAlpha = clamp((accelBoost - 0.3) * 0.7 + level * 0.3, 0, 0.85);
+    for (const r of WARP_RAYS) {
+      r.a += 0.1 * dt;
+      const rayLen = maxR * (0.6 + 0.4 * Math.sin(now * 0.005 * r.speed));
+      const rx1 = cx + Math.cos(r.a) * rayLen;
+      const ry1 = cy + Math.sin(r.a) * rayLen;
+      const grad = ctx.createLinearGradient(cx, cy, rx1, ry1);
+      grad.addColorStop(0, `hsla(${hue}, 100%, 85%, ${rayAlpha * 0.6})`);
+      grad.addColorStop(0.3, `hsla(${hue}, 100%, 65%, ${rayAlpha * 0.35})`);
+      grad.addColorStop(1, 'rgba(0,0,0,0)');
+
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = r.w * dpr * (1 + accelBoost);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(rx1, ry1);
+      ctx.stroke();
+    }
+  }
+
+  // Aura radial central expansiva
+  if (level > 0.1 || accelBoost > 0.2) {
+    const pulseR = maxR * (0.28 + 0.08 * Math.sin(now * 0.006) + accelBoost * 0.18);
+    const g = ctx.createRadialGradient(cx, cy, pulseR * 0.2, cx, cy, pulseR);
+    g.addColorStop(0, `hsla(${hue}, 100%, 70%, ${(level * 0.25 + accelBoost * 0.35)})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+/* 2. ⚡ TEMA CYBER GRID (CARRETERA SYNTHWAVE / TRON) */
+function drawCyberGrid(cx, cy, level, accelBoost, hue, dt, now) {
+  ctx.fillStyle = 'rgba(5, 7, 14, 0.45)';
+  ctx.fillRect(0, 0, W, H);
+
+  const horizonY = cy + H * 0.06;
+  const gridSpeed = (shown * 0.8 + accelBoost * 120 + 20) * dt * 0.006;
+  gridOffset = (gridOffset + gridSpeed) % 1;
+
+  // Sol de neón / Horizonte pulsante
+  const sunR = Math.min(W, H) * 0.18;
+  const sunGrad = ctx.createRadialGradient(cx, horizonY - sunR * 0.3, sunR * 0.1, cx, horizonY - sunR * 0.3, sunR);
+  sunGrad.addColorStop(0, `hsla(${hue + 40}, 100%, 75%, 0.9)`);
+  sunGrad.addColorStop(0.7, `hsla(${hue}, 100%, 55%, 0.4)`);
+  sunGrad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sunGrad;
+  ctx.beginPath();
+  ctx.arc(cx, horizonY - sunR * 0.3, sunR, Math.PI, 0, false);
+  ctx.fill();
+
+  // Línea de horizonte con resplandor
+  ctx.strokeStyle = `hsla(${hue}, 100%, 70%, 0.8)`;
+  ctx.lineWidth = 2 * dpr;
+  ctx.beginPath();
+  ctx.moveTo(0, horizonY);
+  ctx.lineTo(W, horizonY);
+  ctx.stroke();
+
+  // Líneas de perspectiva en fuga hacia el centro
+  const numLongLines = 20;
+  for (let i = -numLongLines; i <= numLongLines; i++) {
+    const xBase = cx + i * (W / (numLongLines * 1.3));
+    const xFar = cx + (i / numLongLines) * (W * 0.04);
+    const alpha = clamp(1 - Math.abs(i) / numLongLines, 0.2, 0.8);
+
+    ctx.strokeStyle = `hsla(${hue}, 100%, ${60 + accelBoost * 20}%, ${alpha * 0.55})`;
+    ctx.lineWidth = (i === 0 ? 3 : 1.5) * dpr;
+    ctx.beginPath();
+    ctx.moveTo(xFar, horizonY);
+    ctx.lineTo(xBase, H);
+    ctx.stroke();
+  }
+
+  // Líneas horizontales de perspectiva moviéndose hacia la cámara
+  const numTrans = 14;
+  for (let j = 0; j < numTrans; j++) {
+    const frac = (j + gridOffset) / numTrans;
+    const y = horizonY + (H - horizonY) * Math.pow(frac, 2.5);
+    const alpha = clamp(Math.pow(frac, 1.8), 0, 1);
+    const glowLight = 50 + 40 * Math.pow(frac, 2) + accelBoost * 20;
+
+    ctx.strokeStyle = `hsla(${hue}, 100%, ${glowLight}%, ${alpha * (0.4 + accelBoost * 0.4)})`;
+    ctx.lineWidth = (1 + 2.5 * frac) * dpr;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(W, y);
+    ctx.stroke();
+  }
+
+  // Estelas laterales tipo barrera de luz rápida
+  if (level > 0.1 || accelBoost > 0.2) {
+    const barW = W * 0.05;
+    const sideGlow = ctx.createLinearGradient(0, 0, barW, 0);
+    sideGlow.addColorStop(0, `hsla(${hue}, 100%, 60%, ${(level * 0.4 + accelBoost * 0.3)})`);
+    sideGlow.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = sideGlow;
+    ctx.fillRect(0, 0, barW, H);
+
+    const rightSide = ctx.createLinearGradient(W, 0, W - barW, 0);
+    rightSide.addColorStop(0, `hsla(${hue}, 100%, 60%, ${(level * 0.4 + accelBoost * 0.3)})`);
+    rightSide.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = rightSide;
+    ctx.fillRect(W - barW, 0, barW, H);
+  }
+}
+
+/* 3. 🌀 TEMA VÓRTICE SÓNICO (TÚNEL CIRCULAR) */
+function drawVortex(cx, cy, level, accelBoost, hue, dt, now) {
+  ctx.fillStyle = 'rgba(4, 7, 12, 0.4)';
+  ctx.fillRect(0, 0, W, H);
+
+  const speedFactor = (0.2 + level * 1.8 + accelBoost * 2.8);
+  vortexOffset = (vortexOffset + speedFactor * dt * 0.6) % 1;
+  vortexAngle += (0.2 + level * 0.8 + accelBoost * 2.0) * dt;
+
+  const numRings = 16;
+  for (let i = 0; i < numRings; i++) {
+    const frac = (i + vortexOffset) / numRings;
+    const r = maxR * Math.pow(frac, 2.2);
+    if (r < 5) continue;
+
+    const sides = 8;
+    const rot = vortexAngle * (i % 2 === 0 ? 1 : -1) * 0.4;
+    const alpha = clamp(Math.pow(frac, 1.4) * (0.3 + level * 0.5 + accelBoost * 0.5), 0.1, 0.95);
+
+    ctx.strokeStyle = `hsla(${hue + i * 4}, 100%, ${55 + accelBoost * 25}%, ${alpha})`;
+    ctx.lineWidth = (1 + frac * 3.5) * dpr * (1 + accelBoost * 0.6);
+
+    ctx.beginPath();
+    for (let s = 0; s <= sides; s++) {
+      const a = rot + (s / sides) * Math.PI * 2;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (s === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+
+  // Líneas radiales que conectan el vórtice
+  const spokes = 12;
+  for (let s = 0; s < spokes; s++) {
+    const a = vortexAngle * 0.2 + (s / spokes) * Math.PI * 2;
+    const x0 = cx + Math.cos(a) * (maxR * 0.08);
+    const y0 = cy + Math.sin(a) * (maxR * 0.08);
+    const x1 = cx + Math.cos(a) * maxR;
+    const y1 = cy + Math.sin(a) * maxR;
+
+    ctx.strokeStyle = `hsla(${hue}, 100%, 65%, ${0.2 + level * 0.2 + accelBoost * 0.4})`;
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+}
+
+/* 4. 🌙 TEMA MINIMAL OLED (PANTALLA LIMPIA DE ALTO RENDIMIENTO) */
+function drawMinimal(cx, cy, level, accelBoost, hue, dt, now) {
+  // Fondo negro absoluto para pantallas OLED y conducción nocturna
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, W, H);
+
+  // Anillo fino y elegante de tacómetro / velocímetro alrededor del número
+  const rMin = Math.min(W, H) * 0.32;
+  const startAngle = Math.PI * 0.75;
+  const endAngle = Math.PI * 2.25;
+  const sweep = endAngle - startAngle;
+
+  // Arco base tenue
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 4 * dpr;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rMin, startAngle, endAngle);
+  ctx.stroke();
+
+  // Arco activo de velocidad
+  const activeSweep = startAngle + sweep * level;
+  ctx.strokeStyle = `hsl(${hue}, 100%, 65%)`;
+  ctx.lineWidth = (4 + accelBoost * 3) * dpr;
+  ctx.shadowColor = `hsl(${hue}, 100%, 55%)`;
+  ctx.shadowBlur = (8 + accelBoost * 18) * dpr;
+  ctx.beginPath();
+  ctx.arc(cx, cy, rMin, startAngle, activeSweep);
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Indicador sutil de G-Force / Aceleración en la parte superior
+  if (Math.abs(accel) > 0.2) {
+    const gVal = clamp(accel / 5, -1, 1);
+    const gRadius = 24 * dpr;
+    const gx = cx;
+    const gy = cy - rMin * 0.85;
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1.5 * dpr;
+    ctx.beginPath();
+    ctx.arc(gx, gy, gRadius, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Punto de fuerza G
+    const dotX = gx;
+    const dotY = gy - gVal * gRadius;
+    ctx.fillStyle = gVal > 0 ? '#00e5ff' : '#ff5252';
+    ctx.beginPath();
+    ctx.arc(dotX, dotY, 4 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+/* ---------- Bucle Principal ---------- */
 let lastT = performance.now(), revShown = false;
 function frame(now){
   requestAnimationFrame(frame);
@@ -605,17 +964,34 @@ function frame(now){
   if (Math.abs(accel) < .05) accel = 0;
 
   const f = unit==='mph' ? .621371 : 1;
-  $('speed').textContent = Math.round(shown*f);
+  const speedVal = Math.round(shown*f);
+  $('speed').textContent = speedVal;
   $('unit').textContent = unit==='mph' ? 'MPH' : 'KM/H';
-  $('accel').textContent = accel > .5 ? '▲ Acelerando' : accel < -.5 ? '▼ Frenando' : (shown>1?'● Velocidad constante':' ');
+
+  // Mostrar G-Force en texto de aceleración para mayor inmersión
+  const gVal = (accel / 9.80665);
+  if (accel > 0.5) {
+    $('accel').textContent = `▲ Acelerando (+${gVal.toFixed(2)} G)`;
+    $('accel').style.color = '#7effa0';
+  } else if (accel < -0.5) {
+    $('accel').textContent = `▼ Frenando (${gVal.toFixed(2)} G)`;
+    $('accel').style.color = '#ff8f8f';
+  } else if (shown > 1) {
+    $('accel').textContent = '● Velocidad constante';
+    $('accel').style.color = '#fff';
+  } else {
+    $('accel').textContent = ' ';
+  }
 
   if (started){
     if (!testMode){
       const age = (Date.now()-lastFix)/1000;
       $('status').textContent = lastFix ? (age<6?'GPS: señal OK':'GPS: sin datos recientes') : 'GPS: buscando señal…';
     } else $('status').textContent = demoOn ? 'Demo automática' : 'Modo prueba';
+    
     updateEngine(dt, now);
-    draw(dt);
+    drawVisuals(dt, now, accel);
+
     const showRev = shown < 2 && !PROFILES[cur].ev;
     if (showRev !== revShown) {
       revShown = showRev; $('rev').hidden = !showRev;
@@ -625,25 +1001,113 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 
-/* ---------- UI ---------- */
+/* ---------- Pantalla Completa Real ---------- */
+function isFullscreen() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+}
+
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (!isFullscreen()) {
+    const rfs = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (rfs) {
+      rfs.call(el).catch(err => console.warn('No se pudo activar pantalla completa:', err));
+    }
+  } else {
+    const efs = document.exitFullscreen || document.webkitExitFullscreen || document.mozCancelFullScreen || document.msExitFullscreen;
+    if (efs) {
+      efs.call(document).catch(err => console.warn('No se pudo salir de pantalla completa:', err));
+    }
+  }
+}
+
+function updateFullscreenUI() {
+  const fs = isFullscreen();
+  $('fsbtn').innerHTML = fs ? '✕' : '⛶';
+  $('fsbtn').title = fs ? 'Salir de Pantalla Completa' : 'Pantalla Completa';
+  $('panelfsbtn').textContent = fs ? '✕ Salir de Pantalla Completa' : '⛶ Entrar en Pantalla Completa';
+}
+
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(ev => {
+  document.addEventListener(ev, () => {
+    updateFullscreenUI();
+    resize();
+  });
+});
+
+$('fsbtn').onclick = toggleFullscreen;
+$('panelfsbtn').onclick = toggleFullscreen;
+
+/* Modo Inmersivo / Ocultar controles con doble toque */
+let cleanMode = false;
+let lastTapT = 0;
+window.addEventListener('pointerup', e => {
+  if (e.target.closest('#panel') || e.target.closest('#gearbtn') || e.target.closest('#fsbtn') || e.target.closest('#rev') || e.target.closest('#start')) return;
+  const now = performance.now();
+  if (now - lastTapT < 380) {
+    cleanMode = !cleanMode;
+    $('gearbtn').style.display = cleanMode ? 'none' : 'flex';
+    $('fsbtn').style.display = cleanMode ? 'none' : 'flex';
+    $('status').style.display = cleanMode ? 'none' : 'block';
+  }
+  lastTapT = now;
+});
+
+/* ---------- Inicialización de UI y Controles ---------- */
 const eb = $('engbtns');
 Object.keys(PROFILES).forEach(k=>{
-  const b=document.createElement('button'); b.className='e'; b.dataset.k=k; b.textContent=PROFILES[k].label;
-  b.onclick=()=>{cur=k;applyEngine();}; eb.appendChild(b);
+  const b=document.createElement('button'); b.className='e' + (k===cur?' on':''); b.dataset.k=k; b.textContent=PROFILES[k].label;
+  b.onclick=()=>{cur=k; applyEngine(); savePreferences();};
+  eb.appendChild(b);
 });
-document.querySelectorAll('button.u').forEach(b=>b.onclick=()=>{
-  unit=b.dataset.u; document.querySelectorAll('button.u').forEach(x=>x.classList.toggle('on',x===b));
+
+// Selección de Temas Visuales
+document.querySelectorAll('button.th').forEach(b => {
+  b.classList.toggle('on', b.dataset.th === vfxTheme);
+  b.onclick = () => {
+    vfxTheme = b.dataset.th;
+    document.querySelectorAll('button.th').forEach(x => x.classList.toggle('on', x === b));
+    savePreferences();
+  };
 });
-document.querySelectorAll('button.v').forEach(b=>b.onclick=()=>{
-  view=+b.dataset.v; document.querySelectorAll('button.v').forEach(x=>x.classList.toggle('on',x===b));
+
+// Botones de Unidad
+document.querySelectorAll('button.u').forEach(b=>{
+  b.classList.toggle('on', b.dataset.u === unit);
+  b.onclick=()=>{
+    unit=b.dataset.u;
+    document.querySelectorAll('button.u').forEach(x=>x.classList.toggle('on',x===b));
+    savePreferences();
+  };
 });
+
+// Botones de Sonido (Cabina / Escape)
+document.querySelectorAll('button.v').forEach(b=>{
+  b.classList.toggle('on', +b.dataset.v === view);
+  b.onclick=()=>{
+    view=+b.dataset.v;
+    document.querySelectorAll('button.v').forEach(x=>x.classList.toggle('on',x===b));
+    savePreferences();
+  };
+});
+
+// Sincronizar inputs con preferencias cargadas
+$('vol').value = Math.round(vol * 100);
+$('amb').checked = (amb === 1);
+$('fxon').checked = fxOn;
+$('accelfx').checked = accelFx;
+$('flashfx').checked = flashFx;
+
 $('gearbtn').onclick=()=>$('panel').classList.toggle('open');
-$('vol').oninput=e=>{vol=e.target.value/100; if(master) master.gain.value=vol;};
-$('amb').onchange=e=>{amb=e.target.checked?1:0;};
+$('vol').oninput=e=>{vol=e.target.value/100; if(master) master.gain.value=vol; savePreferences();};
+$('amb').onchange=e=>{amb=e.target.checked?1:0; savePreferences();};
+$('fxon').onchange=e=>{fxOn=e.target.checked; savePreferences();};
+$('accelfx').onchange=e=>{accelFx=e.target.checked; savePreferences();};
+$('flashfx').onchange=e=>{flashFx=e.target.checked; savePreferences();};
+
 $('test').onchange=e=>{testMode=e.target.checked; if(!testMode){demoOn=false;$('demo').checked=false;}};
 $('tspeed').oninput=e=>{demoOn=false;$('demo').checked=false;testSpeed=+e.target.value; if(!testMode){testMode=true;$('test').checked=true;}};
 $('demo').onchange=e=>{demoOn=e.target.checked; demoT=0; if(!demoOn){testSpeed=0;}};
-$('fxon').onchange=e=>{fxOn=e.target.checked;};
 
 const rev = $('rev');
 const revOn = e => { e.preventDefault(); hold=1; rev.classList.add('down'); };
@@ -652,12 +1116,18 @@ rev.addEventListener('pointerdown',revOn);
 ['pointerup','pointercancel','pointerleave'].forEach(ev=>rev.addEventListener(ev,revOff));
 
 $('startbtn').onclick=async()=>{
-  try { await initAudio(); if (ac.state==='suspended') await ac.resume(); } catch(err){ $('msg').textContent='No se pudo iniciar el audio.'; }
+  try {
+    await initAudio();
+    if (ac.state==='suspended') await ac.resume();
+  } catch(err){
+    $('msg').textContent='No se pudo iniciar el audio.';
+  }
   startGPS();
   try { if (navigator.wakeLock) await navigator.wakeLock.request('screen'); } catch(e){}
   started = true; startT = 0; applyEngine();
   $('start').style.display='none';
 };
+
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden && ac && ac.state==='suspended') ac.resume(); });
 applyEngine();
 </script>
