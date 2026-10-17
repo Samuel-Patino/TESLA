@@ -31,6 +31,17 @@ html, body {
   -webkit-user-select: none;
 }
 
+/* Regla universal para atributos hidden */
+[hidden],
+.stream-container[hidden],
+.pairing-view[hidden],
+.sender-view[hidden],
+.sender-preview[hidden],
+.toast-msg[hidden] {
+  display: none !important;
+}
+
+
 /* Background Ambient Orbs */
 .bg-ambient {
   position: fixed;
@@ -181,7 +192,8 @@ main {
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ----------------------------------------------------
@@ -217,10 +229,20 @@ main {
   border-radius: 20px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   margin-bottom: 20px;
-  display: grid;
-  place-items: center;
-  min-width: 220px;
-  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 252px;
+  min-height: 252px;
+  position: relative;
+}
+.qr-wrapper canvas,
+.qr-wrapper img,
+.qr-wrapper svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 10px;
 }
 .room-code-tag {
   font-size: 13px;
@@ -338,6 +360,9 @@ main {
   justify-content: center;
   background: #000;
   z-index: 10;
+}
+.stream-container[hidden] {
+  display: none !important;
 }
 .video-wrapper {
   position: relative;

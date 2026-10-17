@@ -200,32 +200,100 @@
   if (roomCodeEl) roomCodeEl.textContent = roomCode;
 
   // Generar URL completa para el celular
-  const currentUrl = new URL(window.location.href);
-  currentUrl.searchParams.set('role', 'sender');
-  currentUrl.searchParams.set('code', roomCode);
-  const shareUrl = currentUrl.toString();
-
-  // Generar Código QR
-  const qrTarget = $('qrcode');
-  if (qrTarget && typeof QRCode !== 'undefined') {
-    new QRCode(qrTarget, {
-      text: shareUrl,
-      width: 220,
-      height: 220,
-      colorDark: "#05070d",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.M
-    });
+  let shareUrl = '';
+  try {
+    const currentUrl = new URL(window.location.href);
+    currentUrl.searchParams.set('role', 'sender');
+    currentUrl.searchParams.set('code', roomCode);
+    shareUrl = currentUrl.toString();
+  } catch (e) {
+    const base = window.location.href.split('?')[0];
+    shareUrl = `${base}?role=sender&code=${encodeURIComponent(roomCode)}`;
   }
 
-  // Copiar enlace
-  $('btnCopyLink').onclick = () => {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      toast('Enlace copiado al portapapeles');
-    }).catch(() => {
-      prompt('Copia este enlace en tu celular:', shareUrl);
-    });
-  };
+  // Generar Código QR (con fallback si falla la librería o canvas)
+  const qrTarget = $('qrcode');
+  function renderQR() {
+    if (!qrTarget) return;
+    qrTarget.innerHTML = '';
+
+    let success = false;
+    if (typeof QRCode !== 'undefined') {
+      try {
+        new QRCode(qrTarget, {
+          text: shareUrl,
+          width: 220,
+          height: 220,
+          colorDark: "#05070d",
+          colorLight: "#ffffff",
+          correctLevel: (QRCode.CorrectLevel && QRCode.CorrectLevel.M !== undefined) ? QRCode.CorrectLevel.M : 0
+        });
+        success = true;
+      } catch (err) {
+        console.warn('Fallo renderizado nativo QRCode:', err);
+      }
+    }
+
+    if (!success) {
+      const img = document.createElement('img');
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(shareUrl)}&bgcolor=ffffff&color=05070d&margin=4`;
+      img.alt = `Código QR Sala ${roomCode}`;
+      img.width = 220;
+      img.height = 220;
+      img.style.display = 'block';
+      img.onerror = () => {
+        qrTarget.innerHTML = `
+          <div style="padding: 16px; text-align: center; color: #111;">
+            <div style="font-size: 12px; font-weight: 800; color: #64748b; letter-spacing: 0.05em;">CÓDIGO DE SALA</div>
+            <div style="font-size: 30px; font-weight: 900; letter-spacing: 0.12em; color: #7e22ce; margin: 6px 0;">${roomCode}</div>
+            <div style="font-size: 11px; color: #475569; line-height: 1.3;">Abre esta página en tu celular y toca Transmitir</div>
+          </div>
+        `;
+      };
+      qrTarget.appendChild(img);
+    }
+  }
+
+  renderQR();
+
+  // Copiar enlace seguro (compatible con HTTP y navegadores de auto)
+  const btnCopy = $('btnCopyLink');
+  if (btnCopy) {
+    btnCopy.onclick = () => {
+      copyToClipboard(shareUrl);
+    };
+  }
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        toast('Enlace copiado al portapapeles');
+      }).catch(() => {
+        fallbackCopy(text);
+      });
+    } else {
+      fallbackCopy(text);
+    }
+  }
+
+  function fallbackCopy(text) {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) {
+        toast('Enlace copiado al portapapeles');
+        return;
+      }
+    } catch (_) {}
+    prompt('Copia este enlace para tu celular:', text);
+  }
 
   // Inicializar PeerJS como Receptor
   let peer = null;
@@ -235,23 +303,25 @@
     peer = new Peer(peerId, { debug: 1 });
 
     peer.on('open', id => {
-      statusDot.className = 'dot ok';
-      statusTxt.textContent = 'Listo para conectar';
+      if (statusDot) statusDot.className = 'dot ok';
+      if (statusTxt) statusTxt.textContent = 'Listo para conectar';
     });
 
     peer.on('call', call => {
-      statusTxt.textContent = 'Recibiendo video…';
-      statusDot.className = 'dot live';
+      if (statusTxt) statusTxt.textContent = 'Recibiendo video…';
+      if (statusDot) statusDot.className = 'dot live';
 
       call.answer(); // Responde sin enviar stream de vuelta
 
       call.on('stream', remoteStream => {
-        pairingView.hidden = true;
-        streamContainer.hidden = false;
-        teslaVideo.srcObject = remoteStream;
-        teslaVideo.play().catch(() => {});
+        if (pairingView) pairingView.hidden = true;
+        if (streamContainer) streamContainer.hidden = false;
+        if (teslaVideo) {
+          teslaVideo.srcObject = remoteStream;
+          teslaVideo.play().catch(e => console.warn('Autoplay prevenido:', e));
+        }
 
-        statusTxt.textContent = 'En vivo';
+        if (statusTxt) statusTxt.textContent = 'En vivo';
         toast('Pantalla conectada exitosamente');
       });
 
@@ -268,15 +338,26 @@
     peer.on('error', err => {
       console.warn('Peer error en Tesla:', err);
       if (err.type === 'unavailable-id') {
-        // Regenerar si ya existía ese ID
         roomCode = genCode();
         if (roomCodeEl) roomCodeEl.textContent = roomCode;
+        try {
+          const u = new URL(window.location.href);
+          u.searchParams.set('role', 'sender');
+          u.searchParams.set('code', roomCode);
+          shareUrl = u.toString();
+        } catch (_) {}
+        renderQR();
         peer = new Peer('velox-' + roomCode.toLowerCase(), { debug: 1 });
+      } else {
+        if (statusTxt && statusTxt.textContent === 'Conectando…') {
+          statusTxt.textContent = 'Listo para conectar';
+        }
       }
     });
 
   } catch (e) {
     console.error('Error inicializando PeerJS:', e);
+    if (statusTxt) statusTxt.textContent = 'Listo para conectar';
   }
 
   function onStreamClosed() {
