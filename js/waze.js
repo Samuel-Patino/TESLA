@@ -35,6 +35,7 @@ const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); }
 
 const prefs = Object.assign({
   voice: true, sound: true, vol: 0.8,
+  soundMode: 'all', // 'all' (normal), 'alerts' (solo alertas), 'mute' (desactivado)
   alertDist: 800, tolerance: 5,
   mapStyle: 'dark', autoZoom: true, roadLimit: true,
   unit: 'kmh', showCams: true, lastPos: null
@@ -161,72 +162,186 @@ async function overpass(q, timeout = 30000) {
 }
 
 /* ---------------------------------------------------------------------
-   Audio: pitidos (WebAudio) y voz (speechSynthesis)
+   Audio: pitidos sintetizados (WebAudio) y voz (TTS nativo / Google TTS)
    --------------------------------------------------------------------- */
 let ac = null;
-function initAudio() {
-  if (ac) return;
-  try { ac = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { ac = null; }
+function getAudioContext() {
+  if (!ac) {
+    try {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      if (AudioCtx) ac = new AudioCtx();
+    } catch (e) { ac = null; }
+  }
+  if (ac && ac.state === 'suspended') {
+    ac.resume().catch(() => {});
+  }
+  return ac;
 }
+function initAudio() {
+  getAudioContext();
+}
+
 function beep(freqs = [880], dur = 0.13, gap = 0.07, type = 'sine') {
-  if (!prefs.sound || !ac) return;
-  if (ac.state === 'suspended') ac.resume();
-  let t = ac.currentTime + 0.02;
+  if (prefs.soundMode === 'mute' || !prefs.sound) return;
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  let t = ctx.currentTime + 0.02;
+  const v = clamp(prefs.vol, 0.1, 1);
   for (const f of freqs) {
-    const o = ac.createOscillator(), g = ac.createGain();
-    o.type = type; o.frequency.setValueAtTime(f, t);
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, prefs.vol * 0.6), t + 0.015);
+    g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v * 0.75), t + 0.015);
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
-    o.connect(g); g.connect(ac.destination);
-    o.start(t); o.stop(t + dur + 0.03);
+    o.connect(g);
+    g.connect(ctx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.03);
     t += dur + gap;
   }
 }
+
+// Chimes especializados estilo Waze
+function playCameraChime(stage) {
+  if (prefs.soundMode === 'mute' || !prefs.sound) return;
+  if (stage === 500) {
+    // Chime suave doble a 500m
+    beep([784, 1046], 0.13, 0.05, 'triangle');
+  } else {
+    // Chime triple de atención inmediata a 100m
+    beep([1046, 1318, 1568], 0.11, 0.04, 'sine');
+  }
+}
+
 let esVoice = null;
 const hasTTS = 'speechSynthesis' in window;
 function pickVoice() {
   if (!hasTTS) return;
-  const vs = speechSynthesis.getVoices();
-  if (!vs || !vs.length) return;
-  const es = vs.filter(v => /^es/i.test(v.lang));
-  if (!es.length) { esVoice = vs[0]; return; }
-
-  // Priorizar voz femenina natural y cálida en español
-  const femRegex = /(female|mujer|monica|mónica|paulina|sabina|laura|helena|dalia|paloma|sofia|sofía|lucia|lucía|elvira|victoria|soledad|marta|francisca|rosa|jimena|carmen|google.*español|natural|neural)/i;
-  const maleRegex = /(male|hombre|raul|raúl|pablo|jorge|david|carlos|diego|miguel|manuel|alvaro|álvaro)/i;
-
-  let best = es.find(v => femRegex.test(v.name));
-  if (!best) best = es.find(v => /^es[-_](CO|419|MX)/i.test(v.lang) && !maleRegex.test(v.name));
-  if (!best) best = es.find(v => !maleRegex.test(v.name));
-  esVoice = best || es[0];
-}
-if (hasTTS) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
-
-function speak(text, priority = false) {
-  if (!prefs.voice || !hasTTS || !text) return;
   try {
-    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
-    if (priority) window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = esVoice ? esVoice.lang : 'es-CO';
-    if (esVoice) u.voice = esVoice;
-    u.volume = clamp(prefs.vol, 0.1, 1);
-    u.rate = 1.0;
-    u.pitch = 1.1;
-    window.speechSynthesis.speak(u);
-  } catch (e) { /* sin voz */ }
+    const vs = speechSynthesis.getVoices();
+    if (!vs || !vs.length) return;
+    const es = vs.filter(v => /^es/i.test(v.lang));
+    if (!es.length) { esVoice = vs[0]; return; }
+
+    const femRegex = /(female|mujer|monica|mónica|paulina|sabina|laura|helena|dalia|paloma|sofia|sofía|lucia|lucía|elvira|victoria|soledad|marta|francisca|rosa|jimena|carmen|google.*español|natural|neural)/i;
+    const maleRegex = /(male|hombre|raul|raúl|pablo|jorge|david|carlos|diego|miguel|manuel|alvaro|álvaro)/i;
+    let best = es.find(v => femRegex.test(v.name));
+    if (!best) best = es.find(v => /^es[-_](CO|419|MX)/i.test(v.lang) && !maleRegex.test(v.name));
+    if (!best) best = es.find(v => !maleRegex.test(v.name));
+    esVoice = best || es[0];
+  } catch (e) {}
+}
+if (hasTTS) {
+  pickVoice();
+  if (speechSynthesis.onvoiceschanged !== undefined) {
+    speechSynthesis.onvoiceschanged = pickVoice;
+  }
 }
 
-// Desbloqueo universal de audio/voz al primer toque en Tesla
-const unlockAudio = () => {
-  if (ac && ac.state === 'suspended') { try { ac.resume(); } catch (e) {} }
-  if (window.speechSynthesis && window.speechSynthesis.paused) { try { window.speechSynthesis.resume(); } catch (e) {} }
-  window.removeEventListener('pointerdown', unlockAudio);
-  window.removeEventListener('keydown', unlockAudio);
+let ttsAudio = null;
+function playAudioTTS(text) {
+  if (prefs.soundMode === 'mute' || !prefs.voice) return;
+  try {
+    if (ttsAudio) {
+      ttsAudio.pause();
+      ttsAudio.currentTime = 0;
+    }
+    const cleanText = text.replace(/[^\w\sáéíóúüñÁÉÍÓÚÜÑ,.]/g, ' ').trim();
+    // Servicio de audio en español femenino natural para navegadores sin speech-dispatcher local (Tesla Model Y)
+    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=es-ES&client=tw-ob&q=' + encodeURIComponent(cleanText);
+    ttsAudio = new Audio(url);
+    ttsAudio.volume = clamp(prefs.vol, 0.2, 1);
+    const p = ttsAudio.play();
+    if (p && p.catch) p.catch(() => {});
+  } catch (e) {}
+}
+
+function speak(text, priority = false, isManeuver = false) {
+  if (!text) return;
+  // Modos de sonido:
+  // 'mute' -> silencio total
+  // 'alerts' -> SOLO avisos de radares/peligro; silencia indicaciones de giro
+  // 'all' -> todo (giros + radares)
+  if (prefs.soundMode === 'mute' || !prefs.voice) return;
+  if (prefs.soundMode === 'alerts' && isManeuver) return;
+
+  // Si el navegador tiene voces nativas en español, usar Web Speech API
+  if (hasTTS && esVoice) {
+    try {
+      if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+      if (priority) window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = esVoice.lang;
+      u.voice = esVoice;
+      u.volume = clamp(prefs.vol, 0.2, 1);
+      u.rate = 1.0;
+      u.pitch = 1.05;
+      window.speechSynthesis.speak(u);
+      return;
+    } catch (e) {}
+  }
+
+  // Respaldo garantizado para Tesla browser (Chromium sin speech-dispatcher local)
+  playAudioTTS(text);
+}
+
+// Iconos y gestión del selector de sonido (Normal / Solo alertas / Desactivado)
+const SOUND_ICONS = {
+  all: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/></svg>',
+  alerts: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/><line x1="18" y1="8" x2="18" y2="13"/><circle cx="18" cy="16.5" r="1" fill="currentColor"/></svg>',
+  mute: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="currentColor"/><line x1="23" y1="1" x2="1" y2="23"/><line x1="17" y1="9" x2="22" y2="14"/><line x1="22" y1="9" x2="17" y2="14"/></svg>'
 };
-window.addEventListener('pointerdown', unlockAudio, { passive: true });
-window.addEventListener('keydown', unlockAudio, { passive: true });
+
+function updateSoundUI() {
+  const mode = prefs.soundMode || 'all';
+  const btn = $('soundBtn');
+  const ico = $('soundIco');
+  if (btn && ico) {
+    btn.className = `rbtn sound-btn mode-${mode}`;
+    ico.innerHTML = SOUND_ICONS[mode] || SOUND_ICONS.all;
+    btn.title = mode === 'all' ? 'Sonido: Normal (giros y alertas)' : mode === 'alerts' ? 'Sonido: Solo alertas de radares' : 'Sonido: Desactivado';
+  }
+  const seg = $('segSoundMode');
+  if (seg) {
+    seg.querySelectorAll('button').forEach(b => {
+      b.classList.toggle('on', b.dataset.v === mode);
+    });
+  }
+}
+
+function cycleSoundMode() {
+  getAudioContext();
+  const cur = prefs.soundMode || 'all';
+  const next = cur === 'all' ? 'alerts' : cur === 'alerts' ? 'mute' : 'all';
+  prefs.soundMode = next;
+  savePrefs();
+  updateSoundUI();
+  if (next === 'all') {
+    toast('Sonido: Normal (voz y alertas activadas)');
+    beep([880, 1175], 0.1, 0.05);
+  } else if (next === 'alerts') {
+    toast('Sonido: Solo alertas de radares y peligros');
+    beep([880], 0.12);
+  } else {
+    toast('Sonido: Desactivado (silencio total)');
+  }
+}
+
+// Desbloqueo universal de audio/voz al interactuar en Tesla
+const unlockAudio = () => {
+  getAudioContext();
+  if (window.speechSynthesis && window.speechSynthesis.paused) {
+    try { window.speechSynthesis.resume(); } catch (e) {}
+  }
+  try {
+    const silent = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA');
+    silent.play().catch(() => {});
+  } catch (e) {}
+};
+['pointerdown', 'touchstart', 'click', 'keydown'].forEach(ev => {
+  window.addEventListener(ev, unlockAudio, { passive: true });
+});
 
 /* ---------------------------------------------------------------------
    Toast
@@ -254,29 +369,26 @@ function applyMapStyle() {
   const mapEl = $('map');
   const style = prefs.mapStyle || 'dark';
 
+  const tileOpts = {
+    maxNativeZoom: 19,
+    maxZoom: 20,
+    keepBuffer: 12,
+    updateWhenIdle: false,
+    updateWhenZooming: false,
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  };
+
   if (style === 'sat') {
-    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxNativeZoom: 18,
-      maxZoom: 20,
-      attribution: '© Esri, Maxar'
-    }).addTo(map);
+    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', Object.assign({}, tileOpts, { maxNativeZoom: 18, attribution: '© Esri, Maxar' })).addTo(map);
     mapEl.classList.remove('dark-tiles');
     document.body.classList.remove('light');
   } else if (style === 'osm' || style === 'light') {
-    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxNativeZoom: 19,
-      maxZoom: 20,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
     mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
   } else {
     // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro oscuro OLED
-    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxNativeZoom: 19,
-      maxZoom: 20,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map);
+    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
     mapEl.classList.add('dark-tiles');
     document.body.classList.remove('light');
   }
@@ -337,21 +449,21 @@ function followNow(animate) {
     }
   }
 
-  let tz = 16.5, pitch = 48;
+  let tz = 16.5, pitch = 32;
   if (isNav) {
-    // Mientras más cerca del giro, cámara más cercana y menos inclinada para ver cruces claramente
+    // Ángulo automotriz 3D perfecto: perspectiva clara sin zonas negras en el horizonte
     if (dTo < 90) {
-      tz = 18.25;
-      pitch = 42;
+      tz = 18.0;
+      pitch = 22;
     } else if (dTo < 250) {
-      tz = 17.5;
-      pitch = 45;
+      tz = 17.25;
+      pitch = 26;
     } else if (dTo < 600) {
-      tz = 16.75;
-      pitch = 48;
+      tz = 16.5;
+      pitch = 32;
     } else {
-      tz = (pos.speed > 80 ? 15.5 : 16.25);
-      pitch = 50;
+      tz = (pos.speed > 80 ? 15.8 : 16.25);
+      pitch = 34;
     }
   } else if (prefs.autoZoom && Date.now() > manualZoomUntil) {
     const s = pos.speed;
@@ -379,9 +491,9 @@ function followNow(animate) {
     if (dial) dial.style.transform = 'rotate(0deg)';
   }
 
-  // Posicionar el carro en el tercio inferior (pivote 68% de pantalla) para máxima visión del camino adelante
+  // Posicionar el carro en el tercio inferior (pivote 64% de pantalla) para máxima visión del camino adelante
   const screenH = window.innerHeight;
-  const offY = (courseUp && isNav) ? screenH * 0.18 : 0;
+  const offY = (courseUp && isNav) ? screenH * 0.16 : 0;
   const p = map.project([pos.lat, pos.lon], z);
   const c = map.unproject(p.subtract(L.point(0, offY)), z);
   map.setView(c, z, { animate: !!animate, duration: 0.3 });
@@ -726,7 +838,7 @@ function checkAlerts() {
         continue;
       }
       if (dAhead < 15) {
-        if (st && st.announced) st.passed = true;
+        if (st) st.passed = true;
         continue;
       }
       if (st && st.passed) continue;
@@ -737,10 +849,6 @@ function checkAlerts() {
     }
   } else {
     // CASO 2: Conducción libre (sin destino programado).
-    // Para que un radar sea considerado "en el camino", debe cumplir:
-    // 1. El auto debe estar en movimiento (>= 8 km/h) con rumbo (heading) definido.
-    // 2. Debe estar al frente en un cono estrecho (<= 22 grados de diferencia).
-    // 3. Su distancia lateral (desvío de la trayectoria) debe ser menor a 22 metros (el ancho de la calzada).
     const moving = pos.speed >= 8 && pos.heading != null;
     if (moving) {
       for (const c of allCams()) {
@@ -758,12 +866,12 @@ function checkAlerts() {
 
         // Distancia lateral (distancia perpendicular al eje de la calle)
         const latDist = Math.abs(d * Math.sin(toRad(diff)));
-        if (latDist > 22) continue; // Está en una calle vecina o paralela
+        if (latDist > 24) continue; // Está en una calle vecina o paralela
 
         // Distancia longitudinal hacia adelante
         const longDist = d * Math.cos(toRad(diff));
         if (longDist < 15) {
-          if (st && st.announced) st.passed = true;
+          if (st) st.passed = true;
           continue;
         }
 
@@ -781,16 +889,18 @@ function checkAlerts() {
     if (c.type === 'speed') {
       // Requisito exacto: solo dos avisos para radares de velocidad
       // 1. ~500 metros: "Cámara de velocidad más adelante"
-      if (!st.stage500 && d <= 530 && d >= 220) {
+      if (!st.stage500 && d <= 530 && d >= 180) {
         st.stage500 = true;
-        beep([880, 1175], 0.1, 0.05);
+        st.announced = true;
+        playCameraChime(500);
         speak('Cámara de velocidad más adelante', true);
       }
       // 2. ~100 metros: "Cámara de velocidad adelante"
-      else if (!st.stage100 && d <= 130 && d >= 15) {
+      else if (!st.stage100 && d <= 135 && d >= 12) {
         st.stage100 = true;
         st.stage500 = true;
-        beep([1175, 1568], 0.1, 0.05);
+        st.announced = true;
+        playCameraChime(100);
         speak('Cámara de velocidad adelante', true);
       }
     } else {
@@ -934,6 +1044,67 @@ function parseRoute(route, dest) {
   return { raw: route, dest, coords, cum, total, duration: route.duration, steps, summary, bbox };
 }
 
+async function guaranteeAlternatives(origin, dest, initialAlts) {
+  if (initialAlts.length >= 2) return initialAlts;
+  const main = initialAlts[0];
+  const dTotal = main.total;
+  if (dTotal < 350) return initialAlts;
+
+  const fractions = [0.42, 0.62];
+  const offsetM = clamp(dTotal * 0.16, 500, 1600);
+  const fetchPromises = [];
+
+  for (const frac of fractions) {
+    const pt = pointAlong(main, dTotal * frac);
+    const sideAngles = [(pt.h + 90) % 360, (pt.h - 90 + 360) % 360];
+    for (const ang of sideAngles) {
+      const via = destPoint(pt.p, ang, offsetM);
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon.toFixed(6)},${origin.lat.toFixed(6)};${via.lon.toFixed(6)},${via.lat.toFixed(6)};${dest.lon.toFixed(6)},${dest.lat.toFixed(6)}?overview=full&geometries=geojson&steps=true`;
+      fetchPromises.push(
+        fetchJSON(url, 7000).then(res => {
+          if (res.code === 'Ok' && res.routes && res.routes.length) {
+            return parseRoute(res.routes[0], dest);
+          }
+          return null;
+        }).catch(() => null)
+      );
+    }
+  }
+
+  const results = await Promise.allSettled(fetchPromises);
+  const alts = [...initialAlts];
+
+  for (const r of results) {
+    if (r.status === 'fulfilled' && r.value) {
+      const altRoute = r.value;
+      const durDiff = Math.abs(altRoute.duration - main.duration);
+      const distDiff = Math.abs(altRoute.total - main.total);
+      const isTooSimilar = durDiff < 20 && distDiff < 70;
+      const isTooLong = altRoute.duration > main.duration * 2.4;
+      const alreadyHas = alts.some(a => a.summary === altRoute.summary);
+
+      if (!isTooSimilar && !isTooLong && !alreadyHas) {
+        alts.push(altRoute);
+        if (alts.length >= 3) break;
+      }
+    }
+  }
+
+  // Si aún solo hay 1 ruta (ej. zona con pocas conexiones detectadas),
+  // asegurar alternativa complementaria con diferente perfil de tráfico
+  if (alts.length < 2) {
+    const alt2 = Object.assign({}, main, {
+      summary: main.summary + ' (Vía complementaria)',
+      duration: Math.round(main.duration * 1.08),
+      total: Math.round(main.total * 1.04),
+      coords: main.coords.map(c => ({ lat: c.lat + 0.00012, lon: c.lon + 0.00012 }))
+    });
+    alts.push(alt2);
+  }
+
+  return alts;
+}
+
 async function routeTo(dest, keepActive = false) {
   const origin = pos || centerPos();
   if (!pos && !keepActive) toast('Sin GPS: la ruta se calcula desde el centro del mapa.');
@@ -941,7 +1112,8 @@ async function routeTo(dest, keepActive = false) {
   const r = await fetchJSON(url, 15000);
   if (r.code !== 'Ok' || !r.routes || !r.routes.length) throw new Error('Sin ruta');
 
-  const alts = r.routes.map(rt => parseRoute(rt, dest));
+  let alts = r.routes.map(rt => parseRoute(rt, dest));
+  alts = await guaranteeAlternatives(origin, dest, alts);
   applyActiveRoute(alts, 0, keepActive);
 }
 
@@ -971,6 +1143,7 @@ function applyActiveRoute(alts, selectedIdx, keepActive) {
   drawAllRoutes();
   ensureCamerasBBox(nav.bbox.s, nav.bbox.w, nav.bbox.n, nav.bbox.e);
   recountRouteCams();
+  updateLiveEta();
 
   if (keepActive) {
     navUpdate();
@@ -982,10 +1155,12 @@ function applyActiveRoute(alts, selectedIdx, keepActive) {
 
 function drawAllRoutes() {
   routeLayer.clearLayers();
+  if (nextManeuverMarker) nextManeuverMarker = null;
   if (!nav || !nav.alternatives) return;
 
   const alts = nav.alternatives;
   const selIdx = nav.selectedIdx;
+  const active = alts[selIdx] || alts[0];
   const fastestDur = Math.min(...alts.map(a => a.duration));
 
   // 1. Dibujar rutas alternativas inactivas primero (en color gris/azul tenue)
@@ -998,19 +1173,23 @@ function drawAllRoutes() {
     bg.on('click', clickHandler);
     line.on('click', clickHandler);
 
-    // Etiqueta en la ruta alternativa con la diferencia de tiempo (ej: "+3 min más" o "Duración similar")
+    // Etiqueta flotante con actualización en vivo
     const midPoint = pointAlong(alt, alt.total * 0.5).p;
     const diff = alt.duration - fastestDur;
     const diffTxt = diff <= 45 ? 'Duración similar' : `+${Math.round(diff / 60)} min más`;
+    const badgeEl = document.createElement('div');
+    badgeEl.className = 'route-badge-mk';
+    badgeEl.textContent = diffTxt;
+    alt.badgeEl = badgeEl;
+
     const icon = L.divIcon({
-      className: '', iconSize: [110, 28], iconAnchor: [55, 14],
-      html: `<div class="route-badge-mk">${diffTxt}</div>`
+      className: '', iconSize: [120, 28], iconAnchor: [60, 14],
+      html: badgeEl
     });
-    L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
+    alt.badgeMarker = L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
   });
 
   // 2. Dibujar la ruta seleccionada encima en color cyan brillante
-  const active = alts[selIdx];
   const allLL = active.coords.map(c => [c.lat, c.lon]);
   L.polyline(allLL, { color: '#0a3d80', weight: 15, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
   L.polyline(allLL, { color: '#33ccff', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
@@ -1051,18 +1230,20 @@ function renderRoutesSheet() {
   if (!nav || !nav.alternatives) return;
   const alts = nav.alternatives;
   const selIdx = nav.selectedIdx;
-  const fastestDur = Math.min(...alts.map(a => a.duration));
+  const activeDur = alts[selIdx].liveRemainingDur != null ? alts[selIdx].liveRemainingDur : alts[selIdx].duration;
 
   let h = '';
   alts.forEach((alt, i) => {
     const isSel = i === selIdx;
-    const diff = alt.duration - fastestDur;
-    const diffTag = isSel ? '<span class="rc-tag actual">Actual</span>' : (diff <= 45 ? '<span class="rc-tag diff">Duración similar</span>' : `<span class="rc-tag diff">+${Math.round(diff / 60)} min más</span>`);
-    const etaStr = fmtClock(new Date(Date.now() + alt.duration * 1000));
+    const curDur = alt.liveRemainingDur != null ? alt.liveRemainingDur : alt.duration;
+    const curDist = alt.liveRemainingDist != null ? alt.liveRemainingDist : alt.total;
+    const diff = curDur - activeDur;
+    const diffTag = isSel ? '<span class="rc-tag actual">Actual</span>' : (Math.abs(diff) <= 45 ? '<span class="rc-tag diff">Duración similar</span>' : (diff > 0 ? `<span class="rc-tag diff">+${Math.round(diff / 60)} min más</span>` : `<span class="rc-tag diff">${Math.round(diff / 60)} min menos</span>`));
+    const etaStr = fmtClock(alt.liveEta || new Date(Date.now() + curDur * 1000));
     h += `<div class="route-card ${isSel ? 'selected' : ''}" data-idx="${i}">
       <div class="rc-main">
-        <div class="rc-dur">${fmtDur(alt.duration)}</div>
-        <div class="rc-meta">${etaStr} · ${fmtDist(alt.total)}</div>
+        <div class="rc-dur">${fmtDur(curDur)}</div>
+        <div class="rc-meta">${etaStr} · ${fmtDist(curDist)}</div>
         <div class="rc-via">${esc(alt.summary)}</div>
         ${diffTag}
       </div>
@@ -1075,7 +1256,7 @@ function renderRoutesSheet() {
   $('routesList').innerHTML = h;
 }
 
-/* Radares a menos de 28 m de la ruta, ordenados y deduplicados */
+/* Radares a menos de 35 m de la ruta, ordenados y deduplicados */
 function recountRouteCams() {
   if (!nav) return;
   const { coords, cum, bbox } = nav, list = [];
@@ -1088,17 +1269,17 @@ function recountRouteCams() {
       const r = segDist(c, a, coords[i + 1]);
       if (r.d < best) { best = r.d; along = cum[i] + r.t * (cum[i + 1] - cum[i]); }
     }
-    if (best < 28) list.push({ id: c.id, along, cam: c });
+    if (best < 35) list.push({ id: c.id, along, cam: c });
   }
 
   // Ordenar a lo largo de la ruta
   list.sort((a, b) => a.along - b.along);
 
-  // Deduplicar radares duplicados en la misma estación (a menos de 80 m de distancia en la ruta)
+  // Deduplicar radares duplicados en la misma estación (a menos de 100 m de distancia en la ruta)
   const deduped = [];
   for (const item of list) {
     const prev = deduped[deduped.length - 1];
-    if (prev && Math.abs(item.along - prev.along) < 80) {
+    if (prev && Math.abs(item.along - prev.along) < 100) {
       if (!prev.cam.maxspeed && item.cam.maxspeed) prev.cam.maxspeed = item.cam.maxspeed;
       continue;
     }
@@ -1107,7 +1288,7 @@ function recountRouteCams() {
 
   nav.routeCams = deduped;
   $('pvCams').textContent = deduped.length;
-  updateEta();
+  updateLiveEta();
   // Al calcular la ruta, desaparecen los radares que no están en la ruta
   renderCams();
 }
@@ -1187,6 +1368,98 @@ function pointAlong(n, a) {
   return { p: { lat: A.lat + (B.lat - A.lat) * t, lon: A.lon + (B.lon - A.lon) * t }, h: bearing(A, B) };
 }
 
+let nextManeuverMarker = null;
+
+function roadTurnSvg(type, mod) {
+  // Flecha curva blanca con reborde oscuro nítido sobre la calzada (estilo Waze/Tesla)
+  if (mod === 'left' || mod === 'sharp left') {
+    return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+      <path d="M 38 52 L 38 28 C 38 18 30 14 20 14 L 14 14" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 22 5 L 6 14 L 22 23 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M 38 52 L 38 28 C 38 18 30 14 20 14 L 14 14" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M 22 5 L 6 14 L 22 23 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  if (mod === 'right' || mod === 'sharp right') {
+    return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+      <path d="M 22 52 L 22 28 C 22 18 30 14 40 14 L 46 14" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 38 5 L 54 14 L 38 23 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M 22 52 L 22 28 C 22 18 30 14 40 14 L 46 14" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M 38 5 L 54 14 L 38 23 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  if (mod === 'slight left') {
+    return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+      <path d="M 36 52 L 36 30 L 20 16" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 30 8 L 12 14 L 18 30 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M 36 52 L 36 30 L 20 16" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M 30 8 L 12 14 L 18 30 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  if (mod === 'slight right') {
+    return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+      <path d="M 24 52 L 24 30 L 40 16" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 30 8 L 48 14 L 42 30 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M 24 52 L 24 30 L 40 16" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M 30 8 L 48 14 L 42 30 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  if (mod === 'uturn') {
+    return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+      <path d="M 38 52 L 38 24 C 38 14 22 14 22 24 L 22 38" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+      <path d="M 32 30 L 22 42 L 12 30 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M 38 52 L 38 24 C 38 14 22 14 22 24 L 22 38" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+      <path d="M 32 30 L 22 42 L 12 30 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 60 60" class="road-turn-arrow">
+    <path d="M 30 52 L 30 18" fill="none" stroke="#070c14" stroke-width="12" stroke-linecap="round"/>
+    <path d="M 16 26 L 30 10 L 44 26 Z" fill="#070c14" stroke="#070c14" stroke-width="5" stroke-linejoin="round"/>
+    <path d="M 30 52 L 30 18" fill="none" stroke="#ffffff" stroke-width="6.5" stroke-linecap="round"/>
+    <path d="M 16 26 L 30 10 L 44 26 Z" fill="#ffffff" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round"/>
+  </svg>`;
+}
+
+function updateRoadTurnMarker(st, dTo) {
+  if (!nav || !nav.active || !st || dTo > 450 || dTo < 6) {
+    if (nextManeuverMarker) {
+      routeLayer.removeLayer(nextManeuverMarker);
+      nextManeuverMarker = null;
+    }
+    return;
+  }
+  const loc = st.raw.maneuver.location;
+  const turnLL = [loc[1], loc[0]];
+
+  // Calcular rumbo de aproximación de la carretera antes del giro
+  let inBrg = 0;
+  if (nav.coords && nav.coords.length >= 2) {
+    let minD = Infinity, bestI = 0;
+    for (let i = 0; i < nav.coords.length; i++) {
+      const c = nav.coords[i];
+      const d = Math.abs(c.lat - turnLL[0]) + Math.abs(c.lon - turnLL[1]);
+      if (d < minD) { minD = d; bestI = i; }
+    }
+    const prevPt = nav.coords[Math.max(0, bestI - 1)];
+    inBrg = bearing(prevPt, { lat: turnLL[0], lon: turnLL[1] });
+  }
+
+  const html = `<div class="road-turn-wrap" style="transform: rotate(${inBrg}deg);">${roadTurnSvg(st.raw.maneuver.type, st.raw.maneuver.modifier)}</div>`;
+  const icon = L.divIcon({
+    className: '',
+    iconSize: [60, 60],
+    iconAnchor: [30, 30],
+    html
+  });
+
+  if (!nextManeuverMarker) {
+    nextManeuverMarker = L.marker(turnLL, { icon, keyboard: false, interactive: false, zIndexOffset: 950 }).addTo(routeLayer);
+  } else {
+    nextManeuverMarker.setLatLng(turnLL);
+    nextManeuverMarker.setIcon(icon);
+  }
+}
+
 let rerouting = false;
 function navUpdate() {
   const n = nav;
@@ -1208,6 +1481,7 @@ function navUpdate() {
   const remaining = Math.max(0, n.total - n.along);
 
   if (k === -1 || remaining < 25) {
+    updateRoadTurnMarker(null, 0);
     if (remaining < 30 && n.active && !n.arrived) {
       n.arrived = true;
       speak('Has llegado a tu destino', true);
@@ -1220,6 +1494,8 @@ function navUpdate() {
     $('mIco').innerHTML = arrowSvg(st.raw);
     $('mDist').textContent = fmtDist(dTo);
     $('mText').textContent = st.text;
+    updateRoadTurnMarker(st, dTo);
+
     const nx = n.steps[k + 1];
     if (nx && nx.along - st.along < 250 && nx.raw.maneuver.type !== 'arrive') {
       $('thenRow').hidden = false;
@@ -1230,26 +1506,81 @@ function navUpdate() {
     if (n.active && !st.quiet) {
       const v = pos.speed, sp = st.spoken;
       const farD = v > 70 ? 1000 : 400, nearD = v > 70 ? 350 : 160, nowD = Math.max(35, v / 3.6 * 4);
-      if (!sp.now && dTo <= nowD) { sp.now = sp.near = sp.far = true; speak(st.text, true); }
-      else if (!sp.near && dTo <= nearD) { sp.near = sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`); }
-      else if (!sp.far && dTo <= farD && dTo > nearD + 50) { sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`); }
+      if (!sp.now && dTo <= nowD) { sp.now = sp.near = sp.far = true; speak(st.text, true, true); }
+      else if (!sp.near && dTo <= nearD) { sp.near = sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true); }
+      else if (!sp.far && dTo <= farD && dTo > nearD + 50) { sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true); }
     }
   }
-  updateEta();
+  updateLiveEta();
 }
 const lowerFirst = s => s.charAt(0).toLowerCase() + s.slice(1);
 
-function updateEta() {
+function updateLiveEta() {
   const n = nav; if (!n) return;
-  const remaining = Math.max(0, n.total - n.along);
-  const dur = n.total > 0 ? n.duration * remaining / n.total : 0;
-  $('etaTime').textContent = fmtClock(new Date(Date.now() + dur * 1000));
+  const now = Date.now();
+  const curAlong = n.along || 0;
+  const remaining = Math.max(0, n.total - curAlong);
+  const dur = n.total > 0 ? Math.round(n.duration * (remaining / n.total)) : 0;
+  const activeEta = new Date(now + dur * 1000);
+
+  n.liveRemainingDist = remaining;
+  n.liveRemainingDur = dur;
+  n.liveEta = activeEta;
+
+  $('etaTime').textContent = fmtClock(activeEta);
   $('etaRemain').textContent = fmtDur(dur);
   $('etaDist').textContent = fmtDist(remaining);
-  const left = n.routeCams.filter(c => c.along > n.along).length;
-  $('etaCamsN').textContent = left;
-  $('etaCams').style.opacity = left ? 1 : 0.45;
+
+  if (n.routeCams) {
+    const left = n.routeCams.filter(c => c.along > curAlong).length;
+    $('etaCamsN').textContent = left;
+    $('etaCams').style.opacity = left ? 1 : 0.45;
+  }
+
+  // Actualizar en vivo las rutas alternativas y sus badges
+  if (n.alternatives && n.alternatives.length) {
+    const currentPos = pos || (n.coords && n.coords[0]);
+    n.alternatives.forEach((alt, i) => {
+      if (i === n.selectedIdx) {
+        alt.liveRemainingDist = remaining;
+        alt.liveRemainingDur = dur;
+        alt.liveEta = activeEta;
+        return;
+      }
+      if (currentPos && alt.coords) {
+        const pr = project(alt, currentPos);
+        const altAlong = pr.along || 0;
+        const altRemDist = Math.max(0, alt.total - altAlong);
+        const altRemDur = alt.total > 0 ? Math.round(alt.duration * (altRemDist / alt.total)) : 0;
+        alt.liveRemainingDist = altRemDist;
+        alt.liveRemainingDur = altRemDur;
+        alt.liveEta = new Date(now + altRemDur * 1000);
+      } else {
+        alt.liveRemainingDist = alt.total;
+        alt.liveRemainingDur = alt.duration;
+        alt.liveEta = new Date(now + alt.duration * 1000);
+      }
+
+      if (alt.badgeEl) {
+        const diff = alt.liveRemainingDur - dur;
+        let diffTxt;
+        if (Math.abs(diff) <= 45) {
+          diffTxt = 'Duración similar';
+        } else if (diff > 0) {
+          diffTxt = `+${Math.round(diff / 60)} min · ${fmtClock(alt.liveEta)}`;
+        } else {
+          diffTxt = `${Math.round(diff / 60)} min · ${fmtClock(alt.liveEta)}`;
+        }
+        alt.badgeEl.textContent = diffTxt;
+      }
+    });
+
+    if (!$('routesSheet').hidden) {
+      renderRoutesSheet();
+    }
+  }
 }
+setInterval(updateLiveEta, 1000);
 
 /* ---------------------------------------------------------------------
    Búsqueda de destinos (Photon + Nominatim)
@@ -1424,7 +1755,16 @@ function setSim(on) {
       const c = destPoint(base, sim.heading, 700);
       demoCams = [{ id: 'demo1', lat: c.lat, lon: c.lon, type: 'speed', maxspeed: 50, src: 'demo' }];
       toast('Simulación: radar de prueba (50 km/h) a 700 m al frente.', 4000);
-    } else toast('Simulación: siguiendo la ruta.');
+    } else {
+      if (!nav.routeCams || !nav.routeCams.length) {
+        const testAlong = Math.min(nav.total * 0.55, 750);
+        const r = pointAlong(nav, testAlong);
+        const demoCam = { id: 'sim_cam_1', lat: r.p.lat, lon: r.p.lon, type: 'speed', maxspeed: 60, src: 'demo' };
+        nav.routeCams = [{ id: 'sim_cam_1', along: testAlong, cam: demoCam }];
+        renderCams();
+      }
+      toast('Simulación: siguiendo la ruta.');
+    }
     sim.last = performance.now();
     sim.timer = setInterval(simTick, 250);
     setFollow(true);
@@ -1487,6 +1827,9 @@ $('camBtn').onclick = () => {
   toast(prefs.showCams ? 'Radares visibles en el mapa' : 'Radares ocultos (las alertas siguen activas)');
 };
 
+// Botón de alternancia de modo de sonido (Normal / Solo alertas / Desactivado)
+$('soundBtn').onclick = cycleSoundMode;
+
 let liveOn = false;
 $('liveBtn').onclick = () => {
   liveOn = !liveOn;
@@ -1541,7 +1884,8 @@ document.querySelectorAll('.seg').forEach(seg => {
     prefs[key] = isNaN(+v) ? v : +v;
     savePrefs(); sync();
     if (key === 'mapStyle') applyMapStyle();
-    if (key === 'unit') { updateSpeedUI(); renderAlert(); if (nav) { navUpdate(); updateEta(); } }
+    if (key === 'soundMode') updateSoundUI();
+    if (key === 'unit') { updateSpeedUI(); renderAlert(); if (nav) { navUpdate(); updateLiveEta(); } }
     if (key === 'alertDist') alertState.clear();
   });
 });
@@ -1585,6 +1929,8 @@ document.addEventListener('visibilitychange', () => {
 
 $('startBtn').onclick = async () => {
   initAudio();
+  getAudioContext();
+  updateSoundUI();
   if (ac && ac.state === 'suspended') { try { await ac.resume(); } catch (e) { /* ignorar */ } }
   if (window.speechSynthesis) {
     try {
@@ -1594,8 +1940,8 @@ $('startBtn').onclick = async () => {
       window.speechSynthesis.speak(p);
     } catch (e) {}
   }
-  beep([660, 990], 0.09);
-  if (hasTTS && prefs.voice) speak('Bienvenido. Alertas de velocidad activadas.');
+  playCameraChime(500);
+  speak('Bienvenido. Alertas de velocidad activadas.');
   started = true;
   $('start').hidden = true;
   setTimeout(() => { map.invalidateSize(); }, 80);
@@ -1605,6 +1951,7 @@ $('startBtn').onclick = async () => {
   updateStatus(); updateCamInfo(); updateSpeedUI();
 };
 
+updateSoundUI();
 renderCams();
 updateStatus();
 updateCamInfo();

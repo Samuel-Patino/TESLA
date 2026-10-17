@@ -57,6 +57,9 @@
 
 <!-- Botones superiores derechos -->
 <div class="top-right">
+  <button class="rbtn sound-btn" id="soundBtn" aria-label="Modo de sonido" title="Sonido: Normal / Solo alertas / Desactivado">
+    <span id="soundIco"></span>
+  </button>
   <a class="rbtn" href="index.html" id="homeBtn" aria-label="Inicio" title="Inicio">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/></svg>
   </a>
@@ -208,7 +211,13 @@
     </button>
   </div>
   <div class="set-body">
-    <h3>Alertas</h3>
+    <h3>Sonido y Alertas</h3>
+    <div class="lbl">Modo de sonido</div>
+    <div class="seg" id="segSoundMode" data-key="soundMode">
+      <button data-v="all">Normal</button>
+      <button data-v="alerts">Solo alertas</button>
+      <button data-v="mute">Desactivado</button>
+    </div>
     <label class="row"><input type="checkbox" id="optVoice"> Avisos por voz</label>
     <label class="row"><input type="checkbox" id="optSound"> Sonidos de alerta</label>
     <div class="lbl">Volumen</div>
