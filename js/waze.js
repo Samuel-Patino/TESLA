@@ -286,10 +286,13 @@ function speak(text, priority = false, isManeuver = false, clipKey = null) {
   if (!text && !clipKey) return;
   // Modos de sonido:
   // 'mute' -> silencio total
-  // 'alerts' -> SOLO avisos de radares/peligro; silencia indicaciones de giro
-  // 'all' -> todo (giros + radares)
+  // 'alerts' -> SOLO avisos de cámaras de velocidad a 500m; silencia giros, saludos, llegadas y avisos secundarios
+  // 'all' -> todo (giros + avisos + radares)
   if (prefs.soundMode === 'mute' || !prefs.voice) return;
-  if (prefs.soundMode === 'alerts' && isManeuver) return;
+  if (prefs.soundMode === 'alerts') {
+    if (isManeuver) return;
+    if (clipKey && clipKey !== 'cam_500' && clipKey !== 'overspeed') return;
+  }
 
   // 1. Prioridad: reproducir clip local offline de mujer en español si está disponible
   let matchedKey = clipKey;
@@ -311,6 +314,11 @@ function speak(text, priority = false, isManeuver = false, clipKey = null) {
     else if (t.includes('rotonda') || t.includes('glorieta')) matchedKey = 'roundabout';
     else if (t.includes('giro en u')) matchedKey = 'uturn';
     else if (t.includes('recto') || t.includes('continúa')) matchedKey = 'straight';
+  }
+
+  // En modo 'alerts', verificar nuevamente si la frase encontrada coincide únicamente con cam_500 o overspeed
+  if (prefs.soundMode === 'alerts' && matchedKey !== 'cam_500' && matchedKey !== 'overspeed') {
+    return;
   }
 
   if (matchedKey && playVoiceAudio(matchedKey)) {
@@ -434,12 +442,40 @@ function applyMapStyle() {
     mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
   } else {
-    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro oscuro OLED
+    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro Waze u opción Tesla Minimalista
     currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
-    mapEl.classList.add('dark-tiles');
+    applyMapTheme(mapTheme);
     document.body.classList.remove('light');
   }
 }
+
+let mapTheme = prefs.mapTheme || 'waze'; // 'waze' | 'tesla'
+function applyMapTheme(theme) {
+  mapTheme = theme;
+  prefs.mapTheme = theme;
+  savePrefs();
+
+  const mapEl = $('map');
+  const btn = $('themeBtn');
+  if (theme === 'tesla') {
+    mapEl.classList.remove('dark-tiles');
+    mapEl.classList.add('tesla-tiles');
+    document.body.classList.add('theme-tesla');
+    if (btn) btn.classList.add('on');
+  } else {
+    mapEl.classList.add('dark-tiles');
+    mapEl.classList.remove('tesla-tiles');
+    document.body.classList.remove('theme-tesla');
+    if (btn) btn.classList.remove('on');
+  }
+}
+
+function toggleMapTheme() {
+  const next = mapTheme === 'waze' ? 'tesla' : 'waze';
+  applyMapTheme(next);
+  toast(next === 'tesla' ? 'Estilo: Tesla Minimalista (Dark Matter)' : 'Estilo: Waze (Alto contraste)');
+}
+
 applyMapStyle();
 
 const routeLayer = L.layerGroup().addTo(map);
@@ -853,6 +889,15 @@ function updateSpeedUI() {
   const lim = currentLimit();
   const rl = $('roadLimit');
   if (lim) { rl.hidden = false; rl.textContent = Math.round(lim * f); } else rl.hidden = true;
+
+  // Raya de velocidad alrededor del velocímetro que avanza según la velocidad actual
+  const maxSpd = lim ? Math.max(lim * 1.3, 120) : 120;
+  const pct = Math.min(1, Math.max(0, s / maxSpd));
+  const bar = $('spRingBar');
+  if (bar) {
+    bar.style.strokeDashoffset = 377 * (1 - pct);
+  }
+
   setOverspeed(!!(lim && s > lim + prefs.tolerance));
 }
 function setOverspeed(v) {
@@ -939,26 +984,30 @@ function checkAlerts() {
     const c = best.cam, d = best.d;
 
     if (c.type === 'speed') {
-      // Requisito exacto: solo dos avisos para radares de velocidad
-      // 1. ~500 metros: "Cámara de velocidad más adelante"
+      // Requisito: en solo alertas, se avisa una sola vez a 500m diciendo "Cámara de velocidad más adelante"
+      // 1. ~500 metros: aviso principal
       if (!st.stage500 && d <= 530 && d >= 180) {
         st.stage500 = true;
         st.announced = true;
         playCameraChime(500);
-        speak('Atención, cámara de fotomulta a quinientos metros', true, false, 'cam_500');
+        speak('Cámara de velocidad más adelante', true, false, 'cam_500');
       }
-      // 2. ~100 metros: "Cámara de velocidad adelante"
+      // 2. ~100 metros: aviso secundario (solo en modo 'all', no en 'alerts')
       else if (!st.stage100 && d <= 135 && d >= 12) {
         st.stage100 = true;
         st.stage500 = true;
         st.announced = true;
         playCameraChime(100);
-        speak('Atención, cámara de fotomulta a cien metros', true, false, 'cam_100');
+        if (prefs.soundMode !== 'alerts') {
+          speak('Atención, cámara de fotomulta a cien metros', true, false, 'cam_100');
+        }
       }
     } else {
       if (!st.announced) {
         st.announced = true;
-        announceOtherCam(c, d);
+        if (prefs.soundMode !== 'alerts') {
+          announceOtherCam(c, d);
+        }
       }
     }
 
@@ -972,6 +1021,7 @@ function checkAlerts() {
 }
 
 function announceOtherCam(c, d) {
+  if (prefs.soundMode === 'alerts') return;
   if (c.type === 'police') {
     beep([740, 988], 0.12);
     speak('Policía reportada más adelante', true, false, 'police');
@@ -1248,40 +1298,42 @@ function drawAllRoutes() {
   const selIdx = nav.selectedIdx;
   const active = alts[selIdx] || alts[0];
 
-  // 1. Dibujar rutas alternativas inactivas primero (en color gris/pizarra con borde oscuro)
-  alts.forEach((alt, i) => {
-    if (i === selIdx) return;
-    const ll = alt.coords.map(c => [c.lat, c.lon]);
-    const bg = L.polyline(ll, { color: '#0f172a', weight: 14, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-    const line = L.polyline(ll, { color: '#64748b', weight: 7, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-    const clickHandler = () => switchRoute(i);
-    bg.on('click', clickHandler);
-    line.on('click', clickHandler);
+  // 1. Dibujar rutas alternativas ÚNICAMENTE cuando el usuario presiona el botón de rutas alternativas
+  if (showingAlternatives) {
+    alts.forEach((alt, i) => {
+      if (i === selIdx) return;
+      const ll = alt.coords.map(c => [c.lat, c.lon]);
+      const bg = L.polyline(ll, { color: '#0f172a', weight: 14, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+      const line = L.polyline(ll, { color: '#64748b', weight: 7, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+      const clickHandler = () => switchRoute(i);
+      bg.on('click', clickHandler);
+      line.on('click', clickHandler);
 
-    // Etiqueta flotante con diferencia exacta de minutos respecto a la ruta principal
-    const midPoint = pointAlong(alt, alt.total * 0.5).p;
-    const diff = alt.duration - active.duration;
-    let diffTxt = 'Mismo tiempo';
-    let badgeClass = 'route-badge-mk diff-same';
-    if (diff > 45) {
-      diffTxt = `+${Math.round(diff / 60)} min más`;
-      badgeClass = 'route-badge-mk diff-plus';
-    } else if (diff < -45) {
-      diffTxt = `${Math.round(diff / 60)} min menos`;
-      badgeClass = 'route-badge-mk diff-minus';
-    }
+      // Etiqueta flotante con diferencia exacta de minutos respecto a la ruta principal
+      const midPoint = pointAlong(alt, alt.total * 0.5).p;
+      const diff = alt.duration - active.duration;
+      let diffTxt = 'Mismo tiempo';
+      let badgeClass = 'route-badge-mk diff-same';
+      if (diff > 45) {
+        diffTxt = `+${Math.round(diff / 60)} min más`;
+        badgeClass = 'route-badge-mk diff-plus';
+      } else if (diff < -45) {
+        diffTxt = `${Math.round(diff / 60)} min menos`;
+        badgeClass = 'route-badge-mk diff-minus';
+      }
 
-    const badgeEl = document.createElement('div');
-    badgeEl.className = badgeClass;
-    badgeEl.textContent = diffTxt;
-    alt.badgeEl = badgeEl;
+      const badgeEl = document.createElement('div');
+      badgeEl.className = badgeClass;
+      badgeEl.textContent = diffTxt;
+      alt.badgeEl = badgeEl;
 
-    const icon = L.divIcon({
-      className: '', iconSize: [130, 32], iconAnchor: [65, 16],
-      html: badgeEl
+      const icon = L.divIcon({
+        className: '', iconSize: [130, 32], iconAnchor: [65, 16],
+        html: badgeEl
+      });
+      alt.badgeMarker = L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
     });
-    alt.badgeMarker = L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
-  });
+  }
 
   // 2. Dibujar la ruta seleccionada encima con segmentación de tráfico (Cyan libre, Naranja giros, Rojo cámaras)
   const allLL = active.coords.map(c => [c.lat, c.lon]);
@@ -1311,9 +1363,10 @@ function drawAllRoutes() {
   }).addTo(routeLayer);
 }
 
+let showingAlternatives = false;
 function showAlternativesOverview() {
   if (!nav || !nav.alternatives) return;
-  // Aplanar vista a 2D y pausar seguimiento para vista general
+  showingAlternatives = true;
   follow = false;
   $('recenter').hidden = false;
   $('map').style.transform = 'rotateX(0deg) rotateZ(0deg)';
@@ -1340,14 +1393,19 @@ function showAlternativesOverview() {
 }
 
 function switchRoute(newIdx) {
+  showingAlternatives = false;
   if (!nav || !nav.alternatives || newIdx === nav.selectedIdx) {
     $('routesSheet').hidden = true;
+    drawAllRoutes();
     return;
   }
   applyActiveRoute(nav.alternatives, newIdx, nav.active);
   $('routesSheet').hidden = true;
+  drawAllRoutes();
   toast(`Ruta cambiada: ${nav.summary}`);
-  speak('Ruta alternativa seleccionada', true, false, 'route_changed');
+  if (prefs.soundMode !== 'alerts') {
+    speak('Ruta alternativa seleccionada', true, false, 'route_changed');
+  }
 }
 
 function renderRoutesSheet() {
@@ -1419,6 +1477,8 @@ function recountRouteCams() {
 
 function showPreview() {
   const n = nav;
+  showingAlternatives = false;
+  drawAllRoutes();
   $('pvName').textContent = n.dest.title || 'Destino';
   $('pvAddr').textContent = n.dest.sub || '';
   $('pvTime').textContent = fmtDur(n.duration);
@@ -1435,6 +1495,8 @@ function showPreview() {
 
 function startNav() {
   if (!nav) return;
+  showingAlternatives = false;
+  drawAllRoutes();
   nav.active = true;
   $('preview').hidden = true;
   $('searchBox').hidden = true;
@@ -1446,10 +1508,13 @@ function startNav() {
   navUpdate();
   const first = nav.steps[0];
   const cams = nav.routeCams.length;
-  speak(`${first ? first.text : 'Iniciando ruta'}. ${cams ? (cams === 1 ? 'Hay 1 radar en la ruta' : `Hay ${cams} radares en la ruta`) : ''}`, true);
+  if (prefs.soundMode !== 'alerts') {
+    speak(`${first ? first.text : 'Iniciando ruta'}. ${cams ? (cams === 1 ? 'Hay 1 radar en la ruta' : `Hay ${cams} radares en la ruta`) : ''}`, true);
+  }
 }
 
 function endNav() {
+  showingAlternatives = false;
   nav = null;
   routeLayer.clearLayers();
   $('preview').hidden = true;
@@ -1818,7 +1883,9 @@ $('pvAltBtn').onclick = () => {
   showAlternativesOverview();
 };
 $('routesClose').onclick = () => {
+  showingAlternatives = false;
   $('routesSheet').hidden = true;
+  drawAllRoutes();
   if (nav && nav.active) setFollow(true);
 };
 $('routesList').addEventListener('click', e => {
@@ -1836,45 +1903,7 @@ $('compassBtn').onclick = () => {
   updateMe();
 };
 
-/* ---------------------------------------------------------------------
-   Reportes
-   --------------------------------------------------------------------- */
-let reportAt = null;
-const LIMITS = [null, 30, 40, 50, 60, 80, 90, 100, 120];
-$('rpLimitChips').innerHTML = LIMITS.map(v => `<button data-v="${v == null ? '' : v}">${v == null ? 'Sin dato' : v}</button>`).join('');
-function openReport(at) {
-  reportAt = at;
-  $('settings').hidden = true;
-  $('rpWhere').textContent = at ? 'En el punto seleccionado del mapa' : 'En tu ubicación actual';
-  $('rpLimit').hidden = true;
-  document.querySelectorAll('.rp').forEach(b => b.classList.remove('sel'));
-  $('reportSheet').hidden = false;
-}
-$('reportBtn').onclick = () => openReport(null);
-$('rpClose').onclick = () => { $('reportSheet').hidden = true; };
-map.on('contextmenu', e => openReport({ lat: e.latlng.lat, lon: e.latlng.lng }));
-$('rpGrid').addEventListener('click', e => {
-  const b = e.target.closest('.rp'); if (!b) return;
-  document.querySelectorAll('.rp').forEach(x => x.classList.toggle('sel', x === b));
-  if (b.dataset.type === 'speed') $('rpLimit').hidden = false;
-  else saveReport(b.dataset.type, null);
-});
-$('rpLimitChips').addEventListener('click', e => {
-  const b = e.target.closest('button'); if (!b) return;
-  saveReport('speed', b.dataset.v ? +b.dataset.v : null);
-});
-function saveReport(type, maxspeed) {
-  const p = reportAt || pos;
-  if (!p) { toast('Sin GPS: mantén presionado el mapa para reportar en ese punto.', 4000); return; }
-  const r = { id: 'u' + Date.now().toString(36), lat: p.lat, lon: p.lon, type, maxspeed, src: 'user', t: Date.now() };
-  reports.push(r);
-  saveJSON(REPORTS_KEY, reports);
-  $('reportSheet').hidden = true;
-  renderCams(); updateCamInfo();
-  if (nav) recountRouteCams();
-  beep([660, 990], 0.08);
-  toast(`${TYPE[type].label} reportado${TYPE[type].ttl ? ' (expira en ' + Math.round(TYPE[type].ttl / 3600e3) + ' h)' : ''}`);
-}
+
 
 /* ---------------------------------------------------------------------
    Simulación de conducción (pruebas sin GPS)
@@ -1956,8 +1985,7 @@ setInterval(updateStatus, 2000);
 /* ---------------------------------------------------------------------
    Controles del mapa
    --------------------------------------------------------------------- */
-$('zIn').onclick = () => { manualZoomUntil = Date.now() + 30000; map.zoomIn(); };
-$('zOut').onclick = () => { manualZoomUntil = Date.now() + 30000; map.zoomOut(); };
+if ($('themeBtn')) $('themeBtn').onclick = toggleMapTheme;
 $('recenter').onclick = () => { manualZoomUntil = 0; setFollow(true); };
 $('camBtn').onclick = () => {
   prefs.showCams = !prefs.showCams; savePrefs();
@@ -1985,20 +2013,43 @@ $('liveBtn').onclick = () => {
 };
 
 /* Pantalla completa */
-const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
-$('fsBtn').onclick = () => {
-  const el = document.documentElement;
+function toggleFullScreen() {
+  const doc = document;
+  const el = doc.documentElement;
+  const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
   try {
-    if (!isFs()) (el.requestFullscreen || el.webkitRequestFullscreen).call(el);
-    else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-  } catch (e) { /* no soportado */ }
-};
-['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => document.addEventListener(ev, () => setTimeout(() => map.invalidateSize(), 200)));
+    if (!isFs) {
+      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+      if (req) {
+        const p = req.call(el);
+        if (p && p.catch) p.catch(() => toast('Pantalla completa no permitida'));
+      } else {
+        toast('Pantalla completa no soportada');
+      }
+    } else {
+      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
+      if (exit) {
+        const p = exit.call(doc);
+        if (p && p.catch) p.catch(() => {});
+      }
+    }
+  } catch (e) {
+    toast('Pantalla completa no disponible');
+  }
+}
+$('fsBtn').onclick = toggleFullScreen;
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach(ev => {
+  document.addEventListener(ev, () => {
+    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
+    $('fsBtn').classList.toggle('on', isFs);
+    setTimeout(() => map.invalidateSize(), 200);
+  });
+});
 
 /* ---------------------------------------------------------------------
    Ajustes
    --------------------------------------------------------------------- */
-$('setBtn').onclick = () => { $('reportSheet').hidden = true; $('settings').hidden = !$('settings').hidden; updateCamInfo(); };
+$('setBtn').onclick = () => { $('settings').hidden = !$('settings').hidden; updateCamInfo(); };
 $('setClose').onclick = () => { $('settings').hidden = true; };
 
 const bindCheck = (id, key, after) => {
@@ -2080,7 +2131,9 @@ $('startBtn').onclick = async () => {
     } catch (e) {}
   }
   playCameraChime(500);
-  speak('Bienvenido. Alertas de velocidad activadas.', true, false, 'welcome');
+  if (prefs.soundMode !== 'alerts') {
+    speak('Bienvenido. Alertas de velocidad activadas.', true, false, 'welcome');
+  }
   started = true;
   $('start').hidden = true;
   setTimeout(() => { map.invalidateSize(); }, 80);

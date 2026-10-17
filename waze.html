@@ -81,11 +81,11 @@
       </svg>
     </div>
   </button>
-  <button class="rbtn" id="zIn" aria-label="Acercar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-  </button>
-  <button class="rbtn" id="zOut" aria-label="Alejar">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12h14"/></svg>
+  <button class="rbtn" id="themeBtn" aria-label="Alternar estilo Waze / Tesla Minimalista" title="Estilo de mapa: Waze / Tesla Minimalista">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"/>
+      <path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/>
+    </svg>
   </button>
   <button class="rbtn" id="liveBtn" aria-label="Mapa Waze en vivo" title="Waze Live (tráfico)">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/></svg>
@@ -99,13 +99,21 @@
   <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg> Recentrar
 </button>
 
-<!-- Velocímetro + límite -->
+<!-- Velocímetro + límite estilo Waze -->
 <div class="speedo" id="speedo">
-  <div class="sp-circle" id="spCircle">
-    <div class="sp-val" id="spVal">0</div>
-    <div class="sp-unit" id="spUnit">km/h</div>
+  <div class="sp-box">
+    <div class="sp-circle" id="spCircle">
+      <svg class="sp-ring" viewBox="0 0 136 136">
+        <circle class="sp-ring-bg" cx="68" cy="68" r="60"/>
+        <circle class="sp-ring-bar" id="spRingBar" cx="68" cy="68" r="60"/>
+      </svg>
+      <div class="sp-content">
+        <div class="sp-val" id="spVal">0</div>
+        <div class="sp-unit" id="spUnit">km/h</div>
+      </div>
+    </div>
+    <div class="sp-limit" id="roadLimit" hidden>—</div>
   </div>
-  <div class="limit-sign road" id="roadLimit" hidden>—</div>
   <div class="status" id="status"><span class="dot" id="stDot"></span><span id="stTxt">GPS sin iniciar</span></div>
 </div>
 
@@ -178,29 +186,7 @@
   <div class="routes-list" id="routesList"></div>
 </div>
 
-<!-- Botón de reporte -->
-<button id="reportBtn" class="report-btn" aria-label="Reportar">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-</button>
 
-<div id="reportSheet" class="panel sheet report" hidden>
-  <div class="pv-head">
-    <div><div class="pv-name">Reportar</div><div class="pv-addr" id="rpWhere">En tu ubicación actual</div></div>
-    <button class="sheet-x" id="rpClose" aria-label="Cerrar">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
-    </button>
-  </div>
-  <div class="rp-grid" id="rpGrid">
-    <button class="rp" data-type="speed"><span class="rp-ico t-speed"></span>Radar de velocidad</button>
-    <button class="rp" data-type="redlight"><span class="rp-ico t-redlight"></span>Cámara semáforo</button>
-    <button class="rp" data-type="police"><span class="rp-ico t-police"></span>Policía</button>
-    <button class="rp" data-type="hazard"><span class="rp-ico t-hazard"></span>Peligro</button>
-  </div>
-  <div id="rpLimit" class="rp-limit" hidden>
-    <div class="lbl">Límite de velocidad del radar</div>
-    <div class="chips" id="rpLimitChips"></div>
-  </div>
-</div>
 
 <!-- Ajustes -->
 <div id="settings" class="panel sheet settings" hidden>

@@ -32,6 +32,11 @@ body.light .leaflet-container{background:#e9eef3}
   filter: brightness(0.62) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.32) brightness(0.74);
 }
 
+/* Estilo Minimalista Tesla / Dark Matter: Ultra-limpio, monocromático carbón */
+#map.tesla-tiles .leaflet-tile-pane {
+  filter: grayscale(1) invert(1) brightness(0.44) contrast(1.85);
+}
+
 .leaflet-control-attribution{background:rgba(10,14,22,.65)!important;color:rgba(255,255,255,.6)!important;font-size:10px!important;border-radius:8px 0 0 0}
 .leaflet-control-attribution a{color:rgba(150,200,255,.8)!important}
 body.light .leaflet-control-attribution{background:rgba(255,255,255,.7)!important;color:#333!important}
@@ -133,14 +138,39 @@ body.overspeed #dangerGlow{opacity:1;animation:glow 1s ease-in-out infinite}
 body.navigating .recenter{bottom:120px}
 
 /* ---------- Velocímetro ---------- */
-.speedo{position:fixed;left:16px;bottom:16px;z-index:20;display:flex;align-items:flex-end;gap:10px}
-.sp-circle{width:124px;height:124px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;
-  background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border:3px solid rgba(255,255,255,.18);
-  box-shadow:0 14px 40px -10px rgba(0,0,0,.8);transition:border-color .2s,background .2s}
-.sp-val{font-size:48px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
-.sp-unit{font-size:13px;font-weight:700;color:var(--mut);margin-top:2px}
+.speedo{position:fixed;left:16px;bottom:16px;z-index:20;display:flex;align-items:flex-end;gap:12px}
+.sp-box{position:relative;width:132px;height:132px}
+.sp-circle{
+  position:relative;width:132px;height:132px;border-radius:50%;
+  background:var(--panel);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  border:2.5px solid rgba(255,255,255,.14);box-shadow:0 14px 40px -10px rgba(0,0,0,.85);
+  display:flex;align-items:center;justify-content:center;
+  transition:border-color .2s,background .2s;
+}
+.sp-ring{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);pointer-events:none}
+.sp-ring-bg{fill:none;stroke:rgba(255,255,255,.08);stroke-width:5}
+.sp-ring-bar{
+  fill:none;stroke:var(--waze);stroke-width:5.5;stroke-linecap:round;
+  stroke-dasharray:377;stroke-dashoffset:377;
+  transition:stroke-dashoffset .25s ease-out,stroke .3s;
+}
+body.theme-tesla .sp-ring-bar{stroke:#e2e8f0}
+body.overspeed .sp-ring-bar{stroke:var(--danger)}
 body.overspeed .sp-circle{border-color:var(--danger);background:rgba(120,12,32,.92)}
-.limit-sign.road{width:78px;height:78px;font-size:28px;margin-bottom:4px}
+.sp-content{display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:2}
+.sp-val{font-size:50px;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.03em}
+.sp-unit{font-size:13px;font-weight:700;color:var(--mut);margin-top:2px}
+
+/* Límite pequeño en una esquina tipo Waze */
+.sp-limit{
+  position:absolute;top:-4px;right:-4px;z-index:6;
+  width:44px;height:44px;border-radius:50%;background:#ffffff;
+  border:4.5px solid #e3192f;color:#111111;
+  font-size:16px;font-weight:900;letter-spacing:-.04em;
+  display:grid;place-items:center;box-shadow:0 4px 14px rgba(0,0,0,.65);
+  animation:limitIn .25s ease-out;
+}
+@keyframes limitIn{from{transform:scale(.5);opacity:0}}
 .status{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:600;color:var(--mut);padding:7px 12px;border-radius:999px;
   background:rgba(10,14,22,.75);border:1px solid var(--line);margin-bottom:6px;white-space:nowrap}
 .dot{width:8px;height:8px;border-radius:50%;background:#ffb020;box-shadow:0 0 8px #ffb020;flex-shrink:0}
@@ -154,7 +184,7 @@ body.overspeed .sp-circle{border-color:var(--danger);background:rgba(120,12,32,.
 .eta-x svg{width:22px;height:22px;display:block}
 .eta-x:active{transform:scale(.9)}
 .eta-main{flex:1;text-align:center}
-.eta-time{font-size:30px;font-weight:900;color:var(--ok);line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.eta-time{font-size:30px;font-weight:900;color:#ffffff;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 .eta-sub{font-size:15px;font-weight:600;color:var(--mut);margin-top:4px}
 .eta-cams{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:16px;background:rgba(255,159,28,.14);color:var(--warn);font-weight:800;font-size:18px}
 .eta-cams svg{width:22px;height:22px}
