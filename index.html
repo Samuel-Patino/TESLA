@@ -53,11 +53,11 @@
 
   /* Centro: Tarjetas Minimalistas */
   main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 0}
-  .modules{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(16px,2.4vw,36px);width:100%;max-width:1260px}
+  .modules{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(14px,1.8vw,28px);width:100%;max-width:1440px}
   
   .card{
     position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
-    min-height:clamp(260px,44vh,390px);padding:clamp(24px,2.5vw,42px);
+    min-height:clamp(260px,44vh,390px);padding:clamp(20px,2vw,36px);
     border-radius:32px;text-decoration:none;color:var(--txt);
     background:linear-gradient(165deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
     border:1px solid rgba(255,255,255,.08);
@@ -68,21 +68,25 @@
   .card:active{transform:scale(.97)}
 
   .card-ico{
-    width:88px;height:88px;border-radius:26px;display:grid;place-items:center;margin-bottom:22px;
+    width:84px;height:84px;border-radius:26px;display:grid;place-items:center;margin-bottom:20px;
     transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s;
   }
   .speed .card-ico{background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 14px 34px rgba(58,120,255,.35)}
   .waze .card-ico{background:linear-gradient(135deg,var(--w1),var(--w2));box-shadow:0 14px 34px rgba(51,204,255,.3)}
+  .mirror .card-ico{background:linear-gradient(135deg,#a855f7,#6366f1);box-shadow:0 14px 34px rgba(168,85,247,.35)}
   .whatsapp .card-ico{background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 14px 34px rgba(37,211,102,.35)}
   .card:hover .card-ico{transform:scale(1.06)}
-  .card-ico svg{width:44px;height:44px}
+  .card-ico svg{width:42px;height:42px}
 
-  .card h2{font-size:clamp(26px,2.8vw,40px);font-weight:900;letter-spacing:-.02em}
-  .card p{margin-top:8px;font-size:clamp(14px,1.2vw,17px);font-weight:500;color:var(--mut);letter-spacing:.02em}
+  .card h2{font-size:clamp(22px,2.2vw,34px);font-weight:900;letter-spacing:-.02em}
+  .card p{margin-top:8px;font-size:clamp(13px,1.1vw,16px);font-weight:500;color:var(--mut);letter-spacing:.02em}
 
   footer{display:flex;justify-content:center;align-items:center;font-size:12px;color:rgba(226,234,255,.25);letter-spacing:.1em;text-transform:uppercase}
 
-  @media (max-width:960px){
+  @media (max-width:1200px){
+    .modules{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:680px){
     body{overflow:auto}
     .modules{grid-template-columns:1fr}
     .card{min-height:200px}
@@ -127,6 +131,18 @@
         </div>
         <h2>Waze</h2>
         <p>Radares &amp; Navegación</p>
+      </a>
+
+      <a class="card mirror" id="openMirror" href="compartir.html">
+        <div class="card-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"/>
+            <path d="M12 18h.01"/>
+            <path d="M17 6H7"/>
+          </svg>
+        </div>
+        <h2>Compartir Pantalla</h2>
+        <p>Screen Mirror Celular</p>
       </a>
 
       <a class="card whatsapp" id="openWhatsApp" href="https://web.whatsapp.com/" target="_blank" rel="noopener">
