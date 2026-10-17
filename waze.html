@@ -15,7 +15,9 @@
 <body>
 
 <!-- Mapa -->
-<div id="map"></div>
+<div id="mapViewport">
+  <div id="map"></div>
+</div>
 <div id="wazeLive" hidden>
   <iframe id="wazeFrame" title="Mapa en vivo de Waze" allow="geolocation" src="about:blank"></iframe>
   <div class="live-badge">Waze Live · tráfico y reportes de la comunidad</div>
@@ -27,7 +29,9 @@
   <div id="searchBox" class="panel search">
     <svg class="s-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
     <input id="q" type="search" placeholder="¿A dónde vamos?" autocomplete="off" enterkeyhint="search" aria-label="Buscar destino">
-    <button id="qClear" class="s-clear" aria-label="Borrar" hidden>✕</button>
+    <button id="qClear" class="s-clear" aria-label="Borrar" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
     <div id="results" class="results" hidden></div>
   </div>
 
@@ -66,6 +70,14 @@
 
 <!-- Controles del mapa (derecha) -->
 <div class="map-ctrls">
+  <button class="rbtn compass-btn" id="compassBtn" aria-label="Orientación del mapa" title="Orientación Norte / Rumbo">
+    <div class="compass-dial" id="compassDial">
+      <svg viewBox="0 0 28 28">
+        <polygon points="14,3 18,14 14,11 10,14" fill="#ff3b5c"/>
+        <polygon points="14,25 18,14 14,11 10,14" fill="#a0aec0"/>
+      </svg>
+    </div>
+  </button>
   <button class="rbtn" id="zIn" aria-label="Acercar">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
   </button>
@@ -96,7 +108,9 @@
 
 <!-- Barra inferior de navegación -->
 <div id="etaBar" class="panel eta" hidden>
-  <button class="eta-x" id="navStop" aria-label="Terminar navegación">✕</button>
+  <button class="eta-x" id="navStop" aria-label="Terminar navegación" title="Terminar">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+  </button>
   <div class="eta-main">
     <div class="eta-time" id="etaTime">--:--</div>
     <div class="eta-sub"><span id="etaRemain">— min</span> · <span id="etaDist">— km</span></div>
@@ -105,6 +119,14 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="14" height="10" rx="2"/><path d="M17 10l4-2v8l-4-2"/></svg>
     <span id="etaCamsN">0</span>
   </div>
+  <button class="eta-alt" id="routesBtn" aria-label="Rutas alternativas" title="Ver rutas alternativas">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="6" cy="19" r="2.5"/>
+      <circle cx="18" cy="5" r="2.5"/>
+      <circle cx="6" cy="5" r="2.5"/>
+      <path d="M6 7.5v9M18 7.5a6 6 0 0 1-6 6H6"/>
+    </svg>
+  </button>
 </div>
 
 <!-- Vista previa de ruta -->
@@ -114,7 +136,9 @@
       <div class="pv-name" id="pvName">Destino</div>
       <div class="pv-addr" id="pvAddr"></div>
     </div>
-    <button class="sheet-x" id="pvClose" aria-label="Cerrar">✕</button>
+    <button class="sheet-x" id="pvClose" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
   </div>
   <div class="pv-stats">
     <div><b id="pvTime">—</b><span>Duración</span></div>
@@ -126,8 +150,29 @@
     <button class="btn primary" id="pvGo">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg> Iniciar navegación
     </button>
-    <a class="btn ghost" id="pvWaze" target="_blank" rel="noopener">Abrir en Waze.com</a>
+    <button class="btn ghost" id="pvAltBtn" title="Ver rutas opcionales">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="5" r="2.5"/>
+        <path d="M6 7.5v9M18 7.5a6 6 0 0 1-6 6H6"/>
+      </svg>
+      Rutas
+    </button>
+    <a class="btn ghost" id="pvWaze" target="_blank" rel="noopener">Waze.com</a>
   </div>
+</div>
+
+<!-- Rutas opcionales -->
+<div id="routesSheet" class="panel sheet routes-sheet" hidden>
+  <div class="pv-head">
+    <div>
+      <div class="pv-name">Rutas alternativas</div>
+      <div class="pv-addr" id="routesSub">Elige la mejor opción según el tráfico</div>
+    </div>
+    <button class="sheet-x" id="routesClose" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="routes-list" id="routesList"></div>
 </div>
 
 <!-- Botón de reporte -->
@@ -138,7 +183,9 @@
 <div id="reportSheet" class="panel sheet report" hidden>
   <div class="pv-head">
     <div><div class="pv-name">Reportar</div><div class="pv-addr" id="rpWhere">En tu ubicación actual</div></div>
-    <button class="sheet-x" id="rpClose" aria-label="Cerrar">✕</button>
+    <button class="sheet-x" id="rpClose" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
   </div>
   <div class="rp-grid" id="rpGrid">
     <button class="rp" data-type="speed"><span class="rp-ico t-speed"></span>Radar de velocidad</button>
@@ -156,7 +203,9 @@
 <div id="settings" class="panel sheet settings" hidden>
   <div class="pv-head">
     <div class="pv-name">Ajustes</div>
-    <button class="sheet-x" id="setClose" aria-label="Cerrar">✕</button>
+    <button class="sheet-x" id="setClose" aria-label="Cerrar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+    </button>
   </div>
   <div class="set-body">
     <h3>Alertas</h3>

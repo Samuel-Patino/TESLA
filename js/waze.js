@@ -120,7 +120,14 @@ function fmtDur(s) {
   if (m < 60) return m + ' min';
   return Math.floor(m / 60) + ' h ' + (m % 60) + ' min';
 }
-const fmtClock = d => d.toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit', hour12: false });
+function fmtClock(d) {
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, '0');
+  const ampm = h >= 12 ? 'PM' : 'AM';
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
 
 /* ---------------------------------------------------------------------
    Red
@@ -199,16 +206,27 @@ if (hasTTS) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
 function speak(text, priority = false) {
   if (!prefs.voice || !hasTTS || !text) return;
   try {
-    if (priority) speechSynthesis.cancel();
+    if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+    if (priority) window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
     u.lang = esVoice ? esVoice.lang : 'es-CO';
     if (esVoice) u.voice = esVoice;
-    u.volume = clamp(prefs.vol, 0.05, 1);
-    u.rate = 0.96;   // Pacing suave y natural, no robótico
-    u.pitch = 1.15;  // Tono cálido, amigable y femenino
-    speechSynthesis.speak(u);
+    u.volume = clamp(prefs.vol, 0.1, 1);
+    u.rate = 1.0;
+    u.pitch = 1.1;
+    window.speechSynthesis.speak(u);
   } catch (e) { /* sin voz */ }
 }
+
+// Desbloqueo universal de audio/voz al primer toque en Tesla
+const unlockAudio = () => {
+  if (ac && ac.state === 'suspended') { try { ac.resume(); } catch (e) {} }
+  if (window.speechSynthesis && window.speechSynthesis.paused) { try { window.speechSynthesis.resume(); } catch (e) {} }
+  window.removeEventListener('pointerdown', unlockAudio);
+  window.removeEventListener('keydown', unlockAudio);
+};
+window.addEventListener('pointerdown', unlockAudio, { passive: true });
+window.addEventListener('keydown', unlockAudio, { passive: true });
 
 /* ---------------------------------------------------------------------
    Toast
@@ -279,34 +297,94 @@ function updateMe() {
   const ll = [pos.lat, pos.lon];
   if (!meMarker) meMarker = L.marker(ll, { icon: meIcon, interactive: false, keyboard: false, zIndexOffset: 1000 }).addTo(map);
   else meMarker.setLatLng(ll);
-  if (pos.heading != null) {
-    const d = ((pos.heading - arrowRot) % 360 + 540) % 360 - 180;
-    arrowRot += d;
-    const el = meMarker.getElement();
-    const arrow = el && el.querySelector('.me-arrow');
-    if (arrow) arrow.style.transform = `rotate(${arrowRot}deg)`;
+
+  const el = meMarker.getElement();
+  const arrow = el && el.querySelector('.me-arrow');
+  if (arrow) {
+    const isNav = (nav && nav.active) || sim.on;
+    if (courseUp && isNav) {
+      // En modo rumbo arriba (3D), la calle se orienta hacia arriba, por lo que el auto apunta al frente
+      arrow.style.transform = 'rotate(0deg)';
+    } else if (pos.heading != null) {
+      const d = ((pos.heading - arrowRot) % 360 + 540) % 360 - 180;
+      arrowRot += d;
+      arrow.style.transform = `rotate(${arrowRot}deg)`;
+    }
   }
 }
 
-/* Seguimiento de cámara */
-let follow = true, manualZoomUntil = 0;
+/* Seguimiento de cámara y navegación 3D */
+let follow = true, manualZoomUntil = 0, courseUp = true;
 function setFollow(v) {
   follow = v;
   $('recenter').hidden = v || !pos;
   if (v) followNow(true);
 }
+
 function followNow(animate) {
   if (!pos || !follow) return;
+  const isNav = (nav && nav.active) || sim.on;
   let z = map.getZoom();
-  if (prefs.autoZoom && Date.now() > manualZoomUntil) {
-    const s = pos.speed;
-    const tz = s < 25 ? 17 : s < 60 ? 16.25 : s < 95 ? 15.5 : 15;
-    if (Math.abs(tz - z) >= 0.25) z = tz;
+
+  // Zoom dinámico según la cercanía a un giro o maniobra
+  let dTo = 999;
+  if (nav && nav.steps && nav.steps.length) {
+    for (let i = 1; i < nav.steps.length; i++) {
+      if (nav.steps[i].along > nav.along + 3) {
+        dTo = nav.steps[i].along - nav.along;
+        break;
+      }
+    }
   }
+
+  let tz = 16.5, pitch = 48;
+  if (isNav) {
+    // Mientras más cerca del giro, cámara más cercana y menos inclinada para ver cruces claramente
+    if (dTo < 90) {
+      tz = 18.25;
+      pitch = 42;
+    } else if (dTo < 250) {
+      tz = 17.5;
+      pitch = 45;
+    } else if (dTo < 600) {
+      tz = 16.75;
+      pitch = 48;
+    } else {
+      tz = (pos.speed > 80 ? 15.5 : 16.25);
+      pitch = 50;
+    }
+  } else if (prefs.autoZoom && Date.now() > manualZoomUntil) {
+    const s = pos.speed;
+    tz = s < 25 ? 17 : s < 60 ? 16.25 : s < 95 ? 15.5 : 15;
+    pitch = 0;
+  }
+
+  if (Date.now() > manualZoomUntil && Math.abs(tz - z) >= 0.25) {
+    z = tz;
+  }
+
+  const hdg = (pos.heading != null && !isNaN(pos.heading)) ? pos.heading : 0;
+  const mapEl = $('map');
+
+  if (courseUp && isNav) {
+    // Ángulo acostado (3D) + orientación al rumbo del carro (funciona en GPS y simulación)
+    mapEl.style.transform = `rotateX(${pitch}deg) rotateZ(${-hdg}deg)`;
+    document.documentElement.style.setProperty('--map-counter-rot', `${hdg}deg`);
+    const dial = $('compassDial');
+    if (dial) dial.style.transform = `rotate(${hdg}deg)`;
+  } else {
+    mapEl.style.transform = 'rotateX(0deg) rotateZ(0deg)';
+    document.documentElement.style.setProperty('--map-counter-rot', '0deg');
+    const dial = $('compassDial');
+    if (dial) dial.style.transform = 'rotate(0deg)';
+  }
+
+  // Posicionar el carro en el tercio inferior (pivote 68% de pantalla) para máxima visión del camino adelante
+  const screenH = window.innerHeight;
+  const offY = (courseUp && isNav) ? screenH * 0.18 : 0;
   const p = map.project([pos.lat, pos.lon], z);
-  const off = map.getSize().y * (nav && nav.active ? 0.22 : 0.1);
-  const c = map.unproject(p.subtract(L.point(0, off)), z);
-  map.setView(c, z, { animate: !!animate, duration: 0.6 });
+  const c = map.unproject(p.subtract(L.point(0, offY)), z);
+  map.setView(c, z, { animate: !!animate, duration: 0.3 });
 }
 map.on('dragstart', () => { if (follow) setFollow(false); });
 map.on('click', hideResults);
@@ -486,7 +564,21 @@ async function fetchCamsBBox(s, w, n, e) {
 
 function addCams(list) {
   let added = 0;
-  for (const c of list) if (!osmCams.has(c.id)) { osmCams.set(c.id, c); added++; }
+  for (const c of list) {
+    // Evitar radares duplicados en la misma intersección o calzada (menos de 40 metros de distancia)
+    let duplicate = false;
+    for (const ex of osmCams.values()) {
+      if (dist(ex, c) < 40) {
+        if (!ex.maxspeed && c.maxspeed) ex.maxspeed = c.maxspeed;
+        duplicate = true;
+        break;
+      }
+    }
+    if (!duplicate && !osmCams.has(c.id)) {
+      osmCams.set(c.id, c);
+      added++;
+    }
+  }
   if (added) {
     renderCams();
     updateCamInfo();
@@ -494,7 +586,7 @@ function addCams(list) {
   }
 }
 
-/* Marcadores de radares (solo los visibles) */
+/* Marcadores de radares (solo los visibles y solo los de la ruta si hay ruta activa) */
 const camMarkers = new Map();
 function camIcon(c) {
   const T = TYPE[c.type] || TYPE.speed;
@@ -514,8 +606,14 @@ function renderCams() {
   const show = prefs.showCams && map.getZoom() >= 11;
   const b = map.getBounds().pad(0.4), keep = new Set();
   if (show) {
+    let camList = allCams();
+    // Requisito clave: cuando se calcula o navega una ruta, desaparecen los radares que NO están en la ruta
+    if (nav && nav.routeCams && nav.routeCams.length) {
+      const routeCamIds = new Set(nav.routeCams.map(rc => rc.id));
+      camList = camList.filter(c => routeCamIds.has(c.id));
+    }
     let count = 0;
-    for (const c of allCams()) {
+    for (const c of camList) {
       if (!b.contains([c.lat, c.lon])) continue;
       if (++count > 500) break;
       keep.add(c.id);
@@ -676,9 +774,33 @@ function checkAlerts() {
 
   if (best) {
     let st = alertState.get(best.cam.id);
-    if (!st) { st = { announced: false, near: false, passed: false, startD: best.d }; alertState.set(best.cam.id, st); }
-    if (!st.announced) { st.announced = true; announceCam(best.cam, best.d); }
-    if (!st.near && best.d < 150) { st.near = true; beep([1046, 1046], 0.12); }
+    if (!st) { st = { stage500: false, stage100: false, near: false, passed: false, startD: best.d }; alertState.set(best.cam.id, st); }
+
+    const c = best.cam, d = best.d;
+
+    if (c.type === 'speed') {
+      // Requisito exacto: solo dos avisos para radares de velocidad
+      // 1. ~500 metros: "Cámara de velocidad más adelante"
+      if (!st.stage500 && d <= 530 && d >= 220) {
+        st.stage500 = true;
+        beep([880, 1175], 0.1, 0.05);
+        speak('Cámara de velocidad más adelante', true);
+      }
+      // 2. ~100 metros: "Cámara de velocidad adelante"
+      else if (!st.stage100 && d <= 130 && d >= 15) {
+        st.stage100 = true;
+        st.stage500 = true;
+        beep([1175, 1568], 0.1, 0.05);
+        speak('Cámara de velocidad adelante', true);
+      }
+    } else {
+      if (!st.announced) {
+        st.announced = true;
+        announceOtherCam(c, d);
+      }
+    }
+
+    if (!st.near && d < 120) { st.near = true; beep([1046, 1046], 0.12); }
     activeAlert = { cam: best.cam, d: best.d, startD: Math.max(st.startD, best.d) };
   } else {
     activeAlert = null;
@@ -687,26 +809,17 @@ function checkAlerts() {
   updateSpeedUI();
 }
 
-function announceCam(c, d) {
-  const T = TYPE[c.type] || TYPE.speed;
-  if (c.type === 'police') beep([740, 988], 0.12);
-  else if (c.type === 'hazard') beep([660, 880], 0.12);
-  else beep([880, 1175, 1568], 0.11, 0.05);
-
-  let msg = '';
-  if (c.type === 'speed') {
-    msg = `Atención: cámara de velocidad en tu camino a ${spokenDist(d)}`;
-    if (c.maxspeed) msg += `, límite ${c.maxspeed} kilómetros por hora`;
-  } else if (c.type === 'redlight') {
-    msg = `Atención: cámara de semáforo más adelante a ${spokenDist(d)}`;
-  } else if (c.type === 'police') {
-    msg = `Control policial reportado a ${spokenDist(d)}`;
+function announceOtherCam(c, d) {
+  if (c.type === 'police') {
+    beep([740, 988], 0.12);
+    speak('Policía reportada más adelante', true);
   } else if (c.type === 'hazard') {
-    msg = `Precaución: peligro en la vía a ${spokenDist(d)}`;
-  } else {
-    msg = `${T.label} en tu camino a ${spokenDist(d)}`;
+    beep([660, 880], 0.12);
+    speak('Peligro en la vía más adelante', true);
+  } else if (c.type === 'redlight') {
+    beep([880, 1175, 1568], 0.11, 0.05);
+    speak('Cámara de semáforo más adelante', true);
   }
-  speak(msg, true);
 }
 function renderAlert() {
   const el = $('alert');
@@ -786,16 +899,7 @@ function arrowSvg(s) {
   return `<svg viewBox="0 0 64 64"><g transform="rotate(${ang} 32 34)"><path d="M32 6l18 20H38v32H26V26H14z" fill="#fff"/></g></svg>`;
 }
 
-async function routeTo(dest, keepActive = false) {
-  const origin = pos || centerPos();
-  if (!pos && !keepActive) toast('Sin GPS: la ruta se calcula desde el centro del mapa.');
-  const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon.toFixed(6)},${origin.lat.toFixed(6)};${dest.lon.toFixed(6)},${dest.lat.toFixed(6)}?overview=full&geometries=geojson&steps=true`;
-  const r = await fetchJSON(url, 15000);
-  if (r.code !== 'Ok' || !r.routes || !r.routes.length) throw new Error('Sin ruta');
-  buildNav(r.routes[0], dest, keepActive);
-}
-
-function buildNav(route, dest, keepActive) {
+function parseRoute(route, dest) {
   const coords = route.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
   const cum = [0];
   for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + dist(coords[i - 1], coords[i]));
@@ -813,34 +917,165 @@ function buildNav(route, dest, keepActive) {
     from = bi;
     steps.push({ raw: s, text: stepText(s), quiet: isQuiet(s), along: cum[bi], spoken: {} });
   }
+
+  const roads = [];
+  for (const leg of route.legs) {
+    for (const s of leg.steps) {
+      const nm = (s.name || s.ref || '').trim();
+      if (nm && !roads.includes(nm)) roads.push(nm);
+    }
+  }
+  const summary = roads.length ? 'Por ' + roads.slice(0, 2).join(' / ') : (dest.title || 'Ruta sugerida');
+
+  let s = 90, w = 180, n = -90, e = -180;
+  coords.forEach(c => { s = Math.min(s, c.lat); n = Math.max(n, c.lat); w = Math.min(w, c.lon); e = Math.max(e, c.lon); });
+  const bbox = { s: s - 0.005, w: w - 0.005, n: n + 0.005, e: e + 0.005 };
+
+  return { raw: route, dest, coords, cum, total, duration: route.duration, steps, summary, bbox };
+}
+
+async function routeTo(dest, keepActive = false) {
+  const origin = pos || centerPos();
+  if (!pos && !keepActive) toast('Sin GPS: la ruta se calcula desde el centro del mapa.');
+  const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon.toFixed(6)},${origin.lat.toFixed(6)};${dest.lon.toFixed(6)},${dest.lat.toFixed(6)}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+  const r = await fetchJSON(url, 15000);
+  if (r.code !== 'Ok' || !r.routes || !r.routes.length) throw new Error('Sin ruta');
+
+  const alts = r.routes.map(rt => parseRoute(rt, dest));
+  applyActiveRoute(alts, 0, keepActive);
+}
+
+function applyActiveRoute(alts, selectedIdx, keepActive) {
+  const selected = alts[selectedIdx] || alts[0];
   nav = {
-    dest, coords, cum, total, duration: route.duration, steps,
-    along: 0, seg: 0, off: 0, lastReroute: Date.now(),
-    active: !!keepActive, routeCams: [], arrived: false
+    dest: selected.dest,
+    coords: selected.coords,
+    cum: selected.cum,
+    total: selected.total,
+    duration: selected.duration,
+    steps: selected.steps,
+    summary: selected.summary,
+    bbox: selected.bbox,
+    along: 0,
+    seg: 0,
+    off: 0,
+    lastReroute: Date.now(),
+    active: !!keepActive,
+    routeCams: [],
+    arrived: false,
+    alternatives: alts,
+    selectedIdx
   };
   if (sim.on) sim.along = 0;
 
-  routeLayer.clearLayers();
-  const ll = coords.map(c => [c.lat, c.lon]);
-  L.polyline(ll, { color: '#0a3d80', weight: 15, opacity: 0.9, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
-  L.polyline(ll, { color: '#33ccff', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
-  L.marker([dest.lat, dest.lon], {
-    keyboard: false, interactive: false,
-    icon: L.divIcon({ className: '', iconSize: [44, 44], iconAnchor: [22, 42], html: '<div class="dest-mk"><svg viewBox="0 0 24 24"><path d="M12 22s-7-6.4-7-12a7 7 0 0 1 14 0c0 5.6-7 12-7 12z" fill="#ff3b5c" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="#fff"/></svg></div>' })
-  }).addTo(routeLayer);
-
-  // Descargar radares a lo largo de la ruta
-  let s = 90, w = 180, n = -90, e = -180;
-  coords.forEach(c => { s = Math.min(s, c.lat); n = Math.max(n, c.lat); w = Math.min(w, c.lon); e = Math.max(e, c.lon); });
-  nav.bbox = { s: s - 0.005, w: w - 0.005, n: n + 0.005, e: e + 0.005 };
+  drawAllRoutes();
   ensureCamerasBBox(nav.bbox.s, nav.bbox.w, nav.bbox.n, nav.bbox.e);
   recountRouteCams();
 
-  if (keepActive) { navUpdate(); }
-  else showPreview();
+  if (keepActive) {
+    navUpdate();
+  } else {
+    showPreview();
+  }
+  renderRoutesSheet();
 }
 
-/* Radares a menos de 35 m de la ruta */
+function drawAllRoutes() {
+  routeLayer.clearLayers();
+  if (!nav || !nav.alternatives) return;
+
+  const alts = nav.alternatives;
+  const selIdx = nav.selectedIdx;
+  const fastestDur = Math.min(...alts.map(a => a.duration));
+
+  // 1. Dibujar rutas alternativas inactivas primero (en color gris/azul tenue)
+  alts.forEach((alt, i) => {
+    if (i === selIdx) return;
+    const ll = alt.coords.map(c => [c.lat, c.lon]);
+    const bg = L.polyline(ll, { color: '#1e293b', weight: 12, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+    const line = L.polyline(ll, { color: '#64748b', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+    const clickHandler = () => switchRoute(i);
+    bg.on('click', clickHandler);
+    line.on('click', clickHandler);
+
+    // Etiqueta en la ruta alternativa con la diferencia de tiempo (ej: "+3 min más" o "Duración similar")
+    const midPoint = pointAlong(alt, alt.total * 0.5).p;
+    const diff = alt.duration - fastestDur;
+    const diffTxt = diff <= 45 ? 'Duración similar' : `+${Math.round(diff / 60)} min más`;
+    const icon = L.divIcon({
+      className: '', iconSize: [110, 28], iconAnchor: [55, 14],
+      html: `<div class="route-badge-mk">${diffTxt}</div>`
+    });
+    L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
+  });
+
+  // 2. Dibujar la ruta seleccionada encima en color cyan brillante
+  const active = alts[selIdx];
+  const allLL = active.coords.map(c => [c.lat, c.lon]);
+  L.polyline(allLL, { color: '#0a3d80', weight: 15, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
+  L.polyline(allLL, { color: '#33ccff', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
+
+  // Etiqueta "Actual"
+  const midPoint = pointAlong(active, active.total * 0.5).p;
+  const icon = L.divIcon({
+    className: '', iconSize: [80, 28], iconAnchor: [40, 14],
+    html: '<div class="route-badge-mk actual">Actual</div>'
+  });
+  L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).addTo(routeLayer);
+
+  // Marcador de destino
+  L.marker([nav.dest.lat, nav.dest.lon], {
+    keyboard: false, interactive: false,
+    icon: L.divIcon({
+      className: '', iconSize: [44, 44], iconAnchor: [22, 42],
+      html: '<div class="dest-mk"><svg viewBox="0 0 24 24"><path d="M12 22s-7-6.4-7-12a7 7 0 0 1 14 0c0 5.6-7 12-7 12z" fill="#ff3b5c" stroke="#fff" stroke-width="1.6"/><circle cx="12" cy="10" r="2.6" fill="#fff"/></svg></div>'
+    })
+  }).addTo(routeLayer);
+}
+
+function switchRoute(newIdx) {
+  if (!nav || !nav.alternatives || newIdx === nav.selectedIdx) {
+    $('routesSheet').hidden = true;
+    return;
+  }
+  applyActiveRoute(nav.alternatives, newIdx, nav.active);
+  $('routesSheet').hidden = true;
+  toast(`Ruta cambiada: ${nav.summary}`);
+  if (nav.active) {
+    const first = nav.steps[0];
+    speak(`Ruta cambiada. ${first ? first.text : ''}`, true);
+  }
+}
+
+function renderRoutesSheet() {
+  if (!nav || !nav.alternatives) return;
+  const alts = nav.alternatives;
+  const selIdx = nav.selectedIdx;
+  const fastestDur = Math.min(...alts.map(a => a.duration));
+
+  let h = '';
+  alts.forEach((alt, i) => {
+    const isSel = i === selIdx;
+    const diff = alt.duration - fastestDur;
+    const diffTag = isSel ? '<span class="rc-tag actual">Actual</span>' : (diff <= 45 ? '<span class="rc-tag diff">Duración similar</span>' : `<span class="rc-tag diff">+${Math.round(diff / 60)} min más</span>`);
+    const etaStr = fmtClock(new Date(Date.now() + alt.duration * 1000));
+    h += `<div class="route-card ${isSel ? 'selected' : ''}" data-idx="${i}">
+      <div class="rc-main">
+        <div class="rc-dur">${fmtDur(alt.duration)}</div>
+        <div class="rc-meta">${etaStr} · ${fmtDist(alt.total)}</div>
+        <div class="rc-via">${esc(alt.summary)}</div>
+        ${diffTag}
+      </div>
+      <button class="rc-btn" data-idx="${i}">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>
+        ${isSel ? 'Reanudar' : 'Ir'}
+      </button>
+    </div>`;
+  });
+  $('routesList').innerHTML = h;
+}
+
+/* Radares a menos de 28 m de la ruta, ordenados y deduplicados */
 function recountRouteCams() {
   if (!nav) return;
   const { coords, cum, bbox } = nav, list = [];
@@ -853,11 +1088,28 @@ function recountRouteCams() {
       const r = segDist(c, a, coords[i + 1]);
       if (r.d < best) { best = r.d; along = cum[i] + r.t * (cum[i + 1] - cum[i]); }
     }
-    if (best < 35) list.push({ id: c.id, along, cam: c });
+    if (best < 28) list.push({ id: c.id, along, cam: c });
   }
-  nav.routeCams = list;
-  $('pvCams').textContent = list.length;
+
+  // Ordenar a lo largo de la ruta
+  list.sort((a, b) => a.along - b.along);
+
+  // Deduplicar radares duplicados en la misma estación (a menos de 80 m de distancia en la ruta)
+  const deduped = [];
+  for (const item of list) {
+    const prev = deduped[deduped.length - 1];
+    if (prev && Math.abs(item.along - prev.along) < 80) {
+      if (!prev.cam.maxspeed && item.cam.maxspeed) prev.cam.maxspeed = item.cam.maxspeed;
+      continue;
+    }
+    deduped.push(item);
+  }
+
+  nav.routeCams = deduped;
+  $('pvCams').textContent = deduped.length;
   updateEta();
+  // Al calcular la ruta, desaparecen los radares que no están en la ruta
+  renderCams();
 }
 
 function showPreview() {
@@ -870,6 +1122,7 @@ function showPreview() {
   $('pvCams').textContent = n.routeCams.length;
   $('pvWaze').href = `https://www.waze.com/ul?ll=${n.dest.lat.toFixed(6)},${n.dest.lon.toFixed(6)}&navigate=yes&zoom=17`;
   $('preview').hidden = false;
+  $('routesSheet').hidden = true;
   setFollow(false);
   $('recenter').hidden = true;
   map.fitBounds(L.latLngBounds(n.coords.map(c => [c.lat, c.lon])), { paddingTopLeft: [480, 90], paddingBottomRight: [100, 260] });
@@ -880,6 +1133,7 @@ function startNav() {
   nav.active = true;
   $('preview').hidden = true;
   $('searchBox').hidden = true;
+  $('routesSheet').hidden = true;
   $('maneuver').hidden = false;
   $('etaBar').hidden = false;
   document.body.classList.add('navigating');
@@ -897,8 +1151,14 @@ function endNav() {
   $('maneuver').hidden = true;
   $('thenRow').hidden = true;
   $('etaBar').hidden = true;
+  $('routesSheet').hidden = true;
   $('searchBox').hidden = false;
   document.body.classList.remove('navigating');
+  $('map').style.transform = 'rotateX(0deg) rotateZ(0deg)';
+  document.documentElement.style.setProperty('--map-counter-rot', '0deg');
+  const dial = $('compassDial');
+  if (dial) dial.style.transform = 'rotate(0deg)';
+  renderCams(); // Restaurar todos los radares del área en conducción libre
   if (pos) setFollow(true);
 }
 
@@ -1079,6 +1339,33 @@ $('pvGo').onclick = startNav;
 $('pvClose').onclick = () => { endNav(); qEl.value = ''; $('qClear').hidden = true; };
 $('navStop').onclick = () => { endNav(); speak('Navegación finalizada', true); };
 
+// Rutas alternativas
+$('routesBtn').onclick = () => {
+  if (!nav) return;
+  renderRoutesSheet();
+  $('routesSheet').hidden = !$('routesSheet').hidden;
+};
+$('pvAltBtn').onclick = () => {
+  if (!nav) return;
+  renderRoutesSheet();
+  $('routesSheet').hidden = false;
+};
+$('routesClose').onclick = () => { $('routesSheet').hidden = true; };
+$('routesList').addEventListener('click', e => {
+  const card = e.target.closest('[data-idx]');
+  if (!card) return;
+  switchRoute(+card.dataset.idx);
+});
+
+// Brújula: alternar entre vista 3D (Rumbo arriba) y vista 2D (Norte arriba)
+$('compassBtn').onclick = () => {
+  courseUp = !courseUp;
+  $('compassBtn').classList.toggle('north-up', !courseUp);
+  toast(courseUp ? 'Vista 3D: orientada al rumbo del vehículo' : 'Vista 2D: orientada al Norte');
+  followNow(true);
+  updateMe();
+};
+
 /* ---------------------------------------------------------------------
    Reportes
    --------------------------------------------------------------------- */
@@ -1144,6 +1431,12 @@ function setSim(on) {
   } else {
     toast('Simulación desactivada');
     alertState.clear();
+    if (!nav || !nav.active) {
+      $('map').style.transform = 'rotateX(0deg) rotateZ(0deg)';
+      document.documentElement.style.setProperty('--map-counter-rot', '0deg');
+      const dial = $('compassDial');
+      if (dial) dial.style.transform = 'rotate(0deg)';
+    }
   }
   renderCams(); updateStatus();
 }
@@ -1293,8 +1586,16 @@ document.addEventListener('visibilitychange', () => {
 $('startBtn').onclick = async () => {
   initAudio();
   if (ac && ac.state === 'suspended') { try { await ac.resume(); } catch (e) { /* ignorar */ } }
+  if (window.speechSynthesis) {
+    try {
+      window.speechSynthesis.resume();
+      const p = new SpeechSynthesisUtterance(' ');
+      p.volume = 0.01;
+      window.speechSynthesis.speak(p);
+    } catch (e) {}
+  }
   beep([660, 990], 0.09);
-  if (hasTTS && prefs.voice) speak('Bienvenido. Alertas de radares en tu camino activadas.');
+  if (hasTTS && prefs.voice) speak('Bienvenido. Alertas de velocidad activadas.');
   started = true;
   $('start').hidden = true;
   setTimeout(() => { map.invalidateSize(); }, 80);

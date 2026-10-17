@@ -226,7 +226,9 @@
 <!-- Botones superiores derechos (Pantalla completa y Ajustes) -->
 <div class="btn-group">
   <a id="homebtn" class="top-btn" href="index.html" aria-label="Inicio" title="Volver al inicio">⌂</a>
-  <button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">⛶</button>
+  <button id="fsbtn" class="top-btn" aria-label="Pantalla completa" title="Pantalla completa">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:20px;height:20px;display:block;margin:auto"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  </button>
   <button id="gearbtn" class="top-btn" aria-label="Ajustes" title="Ajustes">⚙</button>
 </div>
 
@@ -1102,7 +1104,9 @@ function toggleFullscreen() {
 
 function updateFullscreenUI() {
   const fs = isFullscreen();
-  $('fsbtn').innerHTML = fs ? '✕' : '⛶';
+  $('fsbtn').innerHTML = fs
+    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" style="width:20px;height:20px;display:block;margin:auto"><path d="M18 6L6 18M6 6l12 12"/></svg>'
+    : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:20px;height:20px;display:block;margin:auto"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>';
   $('fsbtn').title = fs ? 'Salir de Pantalla Completa' : 'Pantalla Completa';
 }
 
