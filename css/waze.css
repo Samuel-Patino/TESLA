@@ -324,3 +324,16 @@ input[type=range]{width:100%;height:40px;accent-color:var(--waze)}
   .eta{min-width:0;left:150px;right:110px;transform:none}
   .left-col{width:calc(100vw - 310px);max-width:calc(100vw - 310px)}
 }
+
+/* ---------- Tráfico en Vivo (TomTom / Waze Live) ---------- */
+.traffic-tag{display:inline-block;font-size:11px;font-weight:800;padding:2px 7px;border-radius:6px;background:rgba(239,68,68,.2);color:#ff4d4d;border:1px solid rgba(239,68,68,.4);margin-top:3px;white-space:nowrap}
+.traffic-tag.light-traffic{background:rgba(16,185,129,.2);color:#10b981;border-color:rgba(16,185,129,.4)}
+.traffic-tag.mod-traffic{background:rgba(245,158,11,.2);color:#f59e0b;border-color:rgba(245,158,11,.4)}
+.rc-tag.traffic-delay{background:rgba(239,68,68,.25);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.eta-delay{display:inline-block;margin-left:6px;color:#ff4d4d;font-weight:800;font-size:13px}
+.traffic-inc-mk{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:rgba(15,23,42,.95);border:2px solid rgba(255,255,255,.4);box-shadow:0 4px 12px rgba(0,0,0,.7);cursor:pointer;transform:rotate(var(--map-counter-rot, 0deg));transition:transform .22s ease-out}
+.traffic-inc-mk.inc-closed{background:#991b1b;border-color:#fca5a5}
+.traffic-inc-mk.inc-works{background:#b45309;border-color:#fde68a}
+.traffic-inc-mk.inc-jam{background:#c2410c;border-color:#fdba74}
+.traffic-inc-mk.inc-accident{background:#9f1239;border-color:#fda4af}
+

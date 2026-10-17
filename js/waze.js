@@ -481,6 +481,96 @@ applyMapStyle();
 const routeLayer = L.layerGroup().addTo(map);
 const camLayer = L.layerGroup().addTo(map);
 
+/* ---------------------------------------------------------------------
+   Tráfico en Vivo y Rutas en Tiempo Real (TomTom API)
+   --------------------------------------------------------------------- */
+const TOMTOM_KEY = 'K56f5YDun1bGXPwi2hDFenx8gKcJAD8M';
+let trafficTileLayer = null;
+let showLiveTraffic = true;
+const incidentLayer = L.layerGroup().addTo(map);
+
+function updateTrafficLayer() {
+  if (showLiveTraffic) {
+    if (!trafficTileLayer) {
+      trafficTileLayer = L.tileLayer(
+        `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`,
+        {
+          maxNativeZoom: 18,
+          maxZoom: 20,
+          opacity: 0.88,
+          zIndex: 12,
+          attribution: 'Tráfico © TomTom'
+        }
+      );
+    }
+    if (!map.hasLayer(trafficTileLayer)) trafficTileLayer.addTo(map);
+    if (!map.hasLayer(incidentLayer)) incidentLayer.addTo(map);
+    loadLiveTrafficIncidents();
+  } else {
+    if (trafficTileLayer && map.hasLayer(trafficTileLayer)) map.removeLayer(trafficTileLayer);
+    if (incidentLayer && map.hasLayer(incidentLayer)) incidentLayer.clearLayers();
+  }
+}
+
+async function loadLiveTrafficIncidents() {
+  if (!showLiveTraffic) return;
+  const c = pos || centerPos();
+  const dLat = 0.12, dLon = 0.12;
+  const minLat = c.lat - dLat, maxLat = c.lat + dLat;
+  const minLon = c.lon - dLon, maxLon = c.lon + dLon;
+  const url = `https://api.tomtom.com/traffic/services/5/incidentDetails?key=${TOMTOM_KEY}&bbox=${minLon.toFixed(4)},${minLat.toFixed(4)},${maxLon.toFixed(4)},${maxLat.toFixed(4)}&fields={incidents{type,geometry{type,coordinates},properties{iconCategory,magnitudeOfDelay,events{description,code}}}}&language=es-ES`;
+
+  try {
+    const data = await fetchJSON(url, 9000);
+    if (!data || !data.incidents) return;
+    incidentLayer.clearLayers();
+
+    let count = 0;
+    for (const inc of data.incidents) {
+      if (++count > 60) break;
+      const geom = inc.geometry;
+      if (!geom || !geom.coordinates) continue;
+      let pt = null;
+      if (geom.type === 'Point') {
+        pt = [geom.coordinates[1], geom.coordinates[0]];
+      } else if (geom.type === 'LineString' && geom.coordinates.length) {
+        const midIdx = Math.floor(geom.coordinates.length / 2);
+        pt = [geom.coordinates[midIdx][1], geom.coordinates[midIdx][0]];
+      }
+      if (!pt) continue;
+
+      const cat = inc.properties.iconCategory;
+      const desc = (inc.properties.events && inc.properties.events[0] && inc.properties.events[0].description) || 'Incidente vial';
+
+      let iconHtml = '⚠️';
+      let badgeClass = 'inc-warn';
+      if (cat === 8) { iconHtml = '⛔'; badgeClass = 'inc-closed'; }
+      else if (cat === 9) { iconHtml = '🚧'; badgeClass = 'inc-works'; }
+      else if (cat === 6) { iconHtml = '🚗'; badgeClass = 'inc-jam'; }
+      else if (cat === 1) { iconHtml = '💥'; badgeClass = 'inc-accident'; }
+
+      const icon = L.divIcon({
+        className: '',
+        iconSize: [30, 30],
+        iconAnchor: [15, 15],
+        html: `<div class="traffic-inc-mk ${badgeClass}" title="${esc(desc)}">${iconHtml}</div>`
+      });
+
+      L.marker(pt, { icon, keyboard: false })
+        .bindPopup(`<b>${esc(desc)}</b><br><small>Reporte de tráfico en tiempo real</small>`)
+        .addTo(incidentLayer);
+    }
+  } catch (e) {
+    console.warn('Error cargando incidentes de tráfico:', e);
+  }
+}
+
+updateTrafficLayer();
+setInterval(() => {
+  if (showLiveTraffic) loadLiveTrafficIncidents();
+}, 180000);
+
+
 /* Marcador del vehículo */
 const meIcon = L.divIcon({
   className: '', iconSize: [64, 64], iconAnchor: [32, 32],
@@ -1111,6 +1201,115 @@ function arrowSvg(s) {
   return `<svg viewBox="0 0 64 64"><g transform="rotate(${ang} 32 34)"><path d="M32 6l18 20H38v32H26V26H14z" fill="#fff"/></g></svg>`;
 }
 
+function mapTomTomManeuver(inst) {
+  const m = (inst.maneuver || '').toUpperCase();
+  let type = 'turn';
+  let modifier = 'straight';
+
+  if (m === 'DEPART') {
+    type = 'depart';
+    modifier = 'straight';
+  } else if (m === 'ARRIVE' || m === 'ARRIVE_LEFT' || m === 'ARRIVE_RIGHT') {
+    type = 'arrive';
+    modifier = m === 'ARRIVE_LEFT' ? 'left' : m === 'ARRIVE_RIGHT' ? 'right' : 'straight';
+  } else if (m.includes('ROUNDABOUT')) {
+    type = 'roundabout';
+    modifier = 'straight';
+  } else if (m === 'TURN_LEFT') {
+    type = 'turn';
+    modifier = 'left';
+  } else if (m === 'TURN_RIGHT') {
+    type = 'turn';
+    modifier = 'right';
+  } else if (m === 'SHARP_LEFT') {
+    type = 'turn';
+    modifier = 'sharp left';
+  } else if (m === 'SHARP_RIGHT') {
+    type = 'turn';
+    modifier = 'sharp right';
+  } else if (m === 'BEAR_LEFT' || m === 'KEEP_LEFT') {
+    type = 'turn';
+    modifier = 'slight left';
+  } else if (m === 'BEAR_RIGHT' || m === 'KEEP_RIGHT') {
+    type = 'turn';
+    modifier = 'slight right';
+  } else if (m === 'UTURN' || m.includes('UTURN')) {
+    type = 'turn';
+    modifier = 'uturn';
+  } else if (m === 'STRAIGHT' || m === 'FOLLOW') {
+    type = 'continue';
+    modifier = 'straight';
+  }
+
+  return {
+    type,
+    modifier,
+    location: [inst.point ? inst.point.longitude : 0, inst.point ? inst.point.latitude : 0]
+  };
+}
+
+function parseTomTomRoute(route, dest) {
+  const points = (route.legs && route.legs[0] && route.legs[0].points) || [];
+  const coords = points.map(p => ({ lat: p.latitude, lon: p.longitude }));
+  const cum = [0];
+  for (let i = 1; i < coords.length; i++) cum.push(cum[i - 1] + dist(coords[i - 1], coords[i]));
+  const total = cum[cum.length - 1] || (route.summary && route.summary.lengthInMeters) || 0;
+
+  const rawInstructions = (route.guidance && route.guidance.instructions) || [];
+  const steps = [];
+
+  rawInstructions.forEach(inst => {
+    const rawManeuver = mapTomTomManeuver(inst);
+    const along = inst.routeOffsetInMeters != null ? inst.routeOffsetInMeters : 0;
+    const isManeuverDepart = rawManeuver.type === 'depart';
+    const isManeuverContinue = rawManeuver.type === 'continue' && rawManeuver.modifier === 'straight';
+    const quiet = isManeuverContinue && !isManeuverDepart;
+
+    steps.push({
+      raw: {
+        maneuver: rawManeuver,
+        name: inst.street || ''
+      },
+      text: inst.message || (inst.street ? `Dirígete por ${inst.street}` : 'Continúa'),
+      quiet,
+      along,
+      spoken: {}
+    });
+  });
+
+  // Resumen de vías principales
+  const roads = [];
+  rawInstructions.forEach(inst => {
+    const nm = (inst.street || '').trim();
+    if (nm && !roads.includes(nm) && nm.length > 2) roads.push(nm);
+  });
+  const summary = roads.length ? 'Por ' + roads.slice(0, 2).join(' / ') : (dest.title || 'Ruta con tráfico en vivo');
+
+  let s = 90, w = 180, n = -90, e = -180;
+  coords.forEach(c => { s = Math.min(s, c.lat); n = Math.max(n, c.lat); w = Math.min(w, c.lon); e = Math.max(e, c.lon); });
+  const bbox = { s: s - 0.005, w: w - 0.005, n: n + 0.005, e: e + 0.005 };
+
+  const liveTravelTime = (route.summary && route.summary.travelTimeInSeconds) || Math.round(total / 11);
+  const trafficDelay = (route.summary && route.summary.trafficDelayInSeconds) || 0;
+  const trafficLength = (route.summary && route.summary.trafficLengthInMeters) || 0;
+
+  return {
+    raw: route,
+    dest,
+    coords,
+    cum,
+    total,
+    duration: liveTravelTime,
+    trafficDelay,
+    trafficLength,
+    liveTraffic: true,
+    sections: route.sections || [],
+    steps,
+    summary,
+    bbox
+  };
+}
+
 function parseRoute(route, dest) {
   const coords = route.geometry.coordinates.map(([lon, lat]) => ({ lat, lon }));
   const cum = [0];
@@ -1143,9 +1342,8 @@ function parseRoute(route, dest) {
   coords.forEach(c => { s = Math.min(s, c.lat); n = Math.max(n, c.lat); w = Math.min(w, c.lon); e = Math.max(e, c.lon); });
   const bbox = { s: s - 0.005, w: w - 0.005, n: n + 0.005, e: e + 0.005 };
 
-  // Factor de congestión urbana realista (1.6x) para igualar exactamente la duración de Waze real (semáforos, tráfico, cruces)
-  const realisticDuration = Math.round(route.duration * 1.6);
-  return { raw: route, dest, coords, cum, total, duration: realisticDuration, steps, summary, bbox };
+  const realisticDuration = Math.round(route.duration * 1.5);
+  return { raw: route, dest, coords, cum, total, duration: realisticDuration, trafficDelay: 0, steps, summary, bbox };
 }
 
 async function guaranteeAlternatives(origin, dest, initialAlts) {
@@ -1194,13 +1392,12 @@ async function guaranteeAlternatives(origin, dest, initialAlts) {
     }
   }
 
-  // Si aún solo hay 1 ruta (ej. zona con pocas conexiones detectadas),
-  // asegurar alternativa complementaria con diferente perfil de tráfico
   if (alts.length < 2) {
     const alt2 = Object.assign({}, main, {
       summary: main.summary + ' (Vía complementaria)',
       duration: Math.round(main.duration * 1.08),
       total: Math.round(main.total * 1.04),
+      trafficDelay: Math.max(0, (main.trafficDelay || 0) + 90),
       coords: main.coords.map(c => ({ lat: c.lat + 0.00012, lon: c.lon + 0.00012 }))
     });
     alts.push(alt2);
@@ -1209,14 +1406,32 @@ async function guaranteeAlternatives(origin, dest, initialAlts) {
   return alts;
 }
 
+async function fetchTomTomRoutes(origin, dest) {
+  const origStr = `${origin.lat.toFixed(6)},${origin.lon.toFixed(6)}`;
+  const destStr = `${dest.lat.toFixed(6)},${dest.lon.toFixed(6)}`;
+  const url = `https://api.tomtom.com/routing/1/calculateRoute/${origStr}:${destStr}/json?key=${TOMTOM_KEY}&traffic=true&maxAlternatives=2&instructionsType=text&language=es-ES&computeTravelTimeFor=all&sectionType=traffic&routeType=fastest`;
+  const res = await fetchJSON(url, 12000);
+  if (!res || !res.routes || !res.routes.length) {
+    throw new Error('Sin rutas de TomTom');
+  }
+  return res.routes.map(r => parseTomTomRoute(r, dest));
+}
+
 async function routeTo(dest, keepActive = false) {
   const origin = pos || centerPos();
   if (!pos && !keepActive) toast('Sin GPS: la ruta se calcula desde el centro del mapa.');
-  const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon.toFixed(6)},${origin.lat.toFixed(6)};${dest.lon.toFixed(6)},${dest.lat.toFixed(6)}?overview=full&geometries=geojson&steps=true&alternatives=true`;
-  const r = await fetchJSON(url, 15000);
-  if (r.code !== 'Ok' || !r.routes || !r.routes.length) throw new Error('Sin ruta');
 
-  let alts = r.routes.map(rt => parseRoute(rt, dest));
+  let alts = null;
+  try {
+    alts = await fetchTomTomRoutes(origin, dest);
+  } catch (err) {
+    console.warn('TomTom routing error, falling back to OSRM:', err);
+    const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon.toFixed(6)},${origin.lat.toFixed(6)};${dest.lon.toFixed(6)},${dest.lat.toFixed(6)}?overview=full&geometries=geojson&steps=true&alternatives=true`;
+    const r = await fetchJSON(url, 15000);
+    if (r.code !== 'Ok' || !r.routes || !r.routes.length) throw new Error('Sin ruta');
+    alts = r.routes.map(rt => parseRoute(rt, dest));
+  }
+
   alts = await guaranteeAlternatives(origin, dest, alts);
   applyActiveRoute(alts, 0, keepActive);
 }
@@ -1229,6 +1444,10 @@ function applyActiveRoute(alts, selectedIdx, keepActive) {
     cum: selected.cum,
     total: selected.total,
     duration: selected.duration,
+    trafficDelay: selected.trafficDelay || 0,
+    trafficLength: selected.trafficLength || 0,
+    liveTraffic: !!selected.liveTraffic,
+    sections: selected.sections || [],
     steps: selected.steps,
     summary: selected.summary,
     bbox: selected.bbox,
@@ -1257,21 +1476,34 @@ function applyActiveRoute(alts, selectedIdx, keepActive) {
   renderRoutesSheet();
 }
 
-function buildTrafficSegments(coords, cum, routeCams, steps) {
+function buildTrafficSegments(coords, cum, routeCams, steps, sections) {
   if (!coords || coords.length < 2) return [];
   const segments = [];
   let curGroup = { color: '#00e5ff', coords: [coords[0]] };
+
+  const trafficByIndex = new Map();
+  if (sections && Array.isArray(sections)) {
+    sections.forEach(sec => {
+      if (sec.sectionType === 'TRAFFIC' || sec.delayInSeconds > 0) {
+        const isHeavy = sec.simpleCategory === 'JAM' || sec.delayInSeconds > 120;
+        const color = isHeavy ? '#ef4444' : '#ff9f1c';
+        const start = sec.startPointIndex || 0;
+        const end = sec.endPointIndex || (coords.length - 1);
+        for (let idx = start; idx <= end; idx++) {
+          trafficByIndex.set(idx, color);
+        }
+      }
+    });
+  }
 
   for (let i = 0; i < coords.length - 1; i++) {
     const p1 = coords[i], p2 = coords[i + 1];
     const sMid = (cum[i] + (cum[i + 1] || cum[i])) / 2;
 
-    // Nivel de congestión vehicular:
-    // Rojo (#ef4444): a menos de 140 m de una cámara de fotomulta o semáforo (zona de frenado / embotellamiento)
-    // Naranja (#ff9f1c): a menos de 75 m de un giro, rotonda o intersección
-    // Cyan (#00e5ff): flujo libre y despejado
     let color = '#00e5ff';
-    if (routeCams && routeCams.some(c => Math.abs(c.along - sMid) < 140)) {
+    if (trafficByIndex.has(i)) {
+      color = trafficByIndex.get(i);
+    } else if (routeCams && routeCams.some(c => Math.abs(c.along - sMid) < 140)) {
       color = '#ef4444';
     } else if (steps && steps.some(st => Math.abs(st.along - sMid) < 75)) {
       color = '#ff9f1c';
@@ -1335,11 +1567,11 @@ function drawAllRoutes() {
     });
   }
 
-  // 2. Dibujar la ruta seleccionada encima con segmentación de tráfico (Cyan libre, Naranja giros, Rojo cámaras)
+  // 2. Dibujar la ruta seleccionada encima con segmentación de tráfico real
   const allLL = active.coords.map(c => [c.lat, c.lon]);
   L.polyline(allLL, { color: '#04172e', weight: 16, opacity: 0.98, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
 
-  const trafficSegs = buildTrafficSegments(active.coords, active.cum, nav.routeCams, active.steps);
+  const trafficSegs = buildTrafficSegments(active.coords, active.cum, nav.routeCams, active.steps, active.sections);
   trafficSegs.forEach(seg => {
     const sLL = seg.coords.map(c => [c.lat, c.lon]);
     L.polyline(sLL, { color: seg.color, weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
@@ -1420,14 +1652,18 @@ function renderRoutesSheet() {
     const curDur = alt.liveRemainingDur != null ? alt.liveRemainingDur : alt.duration;
     const curDist = alt.liveRemainingDist != null ? alt.liveRemainingDist : alt.total;
     const diff = curDur - activeDur;
-    const diffTag = isSel ? '<span class="rc-tag actual">Actual</span>' : (Math.abs(diff) <= 45 ? '<span class="rc-tag diff">Duración similar</span>' : (diff > 0 ? `<span class="rc-tag diff">+${Math.round(diff / 60)} min más</span>` : `<span class="rc-tag diff">${Math.round(diff / 60)} min menos</span>`));
+    const diffTag = isSel ? '<span class="rc-tag actual">Actual</span>' : (Math.abs(diff) <= 45 ? '<span class="rc-tag diff">Mismo tiempo</span>' : (diff > 0 ? `<span class="rc-tag diff">+${Math.round(diff / 60)} min más</span>` : `<span class="rc-tag diff">${Math.round(diff / 60)} min menos</span>`));
+    const trafficTag = (alt.trafficDelay && alt.trafficDelay >= 60) ? `<span class="rc-tag traffic-delay">+${Math.round(alt.trafficDelay / 60)} min tráfico</span>` : '';
     const etaStr = fmtClock(alt.liveEta || new Date(Date.now() + curDur * 1000));
     h += `<div class="route-card ${isSel ? 'selected' : ''}" data-idx="${i}">
       <div class="rc-main">
         <div class="rc-dur">${fmtDur(curDur)}</div>
-        <div class="rc-meta">${etaStr} · ${fmtDist(curDist)}</div>
+        <div class="rc-meta">${etaStr} · ${fmtDist(curDist)} · Tráfico en vivo</div>
         <div class="rc-via">${esc(alt.summary)}</div>
-        ${diffTag}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+          ${diffTag}
+          ${trafficTag}
+        </div>
       </div>
       <button class="rc-btn" data-idx="${i}">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 19-7-4-7 4z"/></svg>
@@ -1481,7 +1717,12 @@ function showPreview() {
   drawAllRoutes();
   $('pvName').textContent = n.dest.title || 'Destino';
   $('pvAddr').textContent = n.dest.sub || '';
-  $('pvTime').textContent = fmtDur(n.duration);
+  if (n.trafficDelay && n.trafficDelay >= 60) {
+    const delayM = Math.round(n.trafficDelay / 60);
+    $('pvTime').innerHTML = `${fmtDur(n.duration)}<br><span class="traffic-tag">+${delayM} min tráfico</span>`;
+  } else {
+    $('pvTime').innerHTML = `${fmtDur(n.duration)}<br><span class="traffic-tag light-traffic">Tráfico fluido</span>`;
+  }
   $('pvDist').textContent = fmtDist(n.total);
   $('pvEta').textContent = fmtClock(new Date(Date.now() + n.duration * 1000));
   $('pvCams').textContent = n.routeCams.length;
@@ -1732,6 +1973,21 @@ function updateLiveEta() {
   $('etaTime').textContent = fmtClock(activeEta);
   $('etaRemain').textContent = fmtDur(dur);
   $('etaDist').textContent = fmtDist(remaining);
+
+  const etaTrafficEl = $('etaTraffic');
+  if (etaTrafficEl) {
+    if (n.trafficDelay && n.trafficDelay >= 60) {
+      const remDelay = n.total > 0 ? Math.round(n.trafficDelay * (remaining / n.total)) : 0;
+      if (remDelay >= 60) {
+        etaTrafficEl.textContent = ` · +${Math.round(remDelay / 60)} min tráfico`;
+        etaTrafficEl.hidden = false;
+      } else {
+        etaTrafficEl.hidden = true;
+      }
+    } else {
+      etaTrafficEl.hidden = true;
+    }
+  }
 
   if (n.routeCams) {
     const left = n.routeCams.filter(c => c.along > curAlong).length;
@@ -1997,20 +2253,15 @@ $('camBtn').onclick = () => {
 // Botón de alternancia de modo de sonido (Normal / Solo alertas / Desactivado)
 $('soundBtn').onclick = cycleSoundMode;
 
-let liveOn = false;
-$('liveBtn').onclick = () => {
-  liveOn = !liveOn;
-  $('liveBtn').classList.toggle('on', liveOn);
-  if (liveOn) {
-    const c = pos || centerPos();
-    $('wazeFrame').src = `https://embed.waze.com/iframe?zoom=${Math.round(clamp(map.getZoom(), 3, 17))}&lat=${c.lat.toFixed(5)}&lon=${c.lon.toFixed(5)}&ct=livemap`;
-    $('wazeLive').hidden = false;
-    toast('Waze Live: tráfico y reportes en tiempo real. Las alertas de radar siguen activas.', 4000);
-  } else {
-    $('wazeLive').hidden = true;
-    $('wazeFrame').src = 'about:blank';
-  }
-};
+if ($('liveBtn')) {
+  $('liveBtn').classList.toggle('on', showLiveTraffic);
+  $('liveBtn').onclick = () => {
+    showLiveTraffic = !showLiveTraffic;
+    $('liveBtn').classList.toggle('on', showLiveTraffic);
+    updateTrafficLayer();
+    toast(showLiveTraffic ? 'Tráfico en tiempo real (TomTom / Waze Live) activado' : 'Tráfico en tiempo real desactivado');
+  };
+}
 
 /* Pantalla completa */
 function toggleFullScreen() {
