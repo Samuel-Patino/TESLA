@@ -25,6 +25,12 @@ input{font:inherit;color:inherit}
 #map{position:fixed;inset:0;z-index:0;background:#0d1118}
 .leaflet-container{background:#0d1118;font-family:inherit}
 body.light .leaflet-container{background:#e9eef3}
+
+/* Filtro Oscuro OLED para OpenStreetMap (100% libre de marcas de agua) */
+#map.dark-tiles .leaflet-tile-pane {
+  filter: brightness(0.62) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.32) brightness(0.74);
+}
+
 .leaflet-control-attribution{background:rgba(10,14,22,.65)!important;color:rgba(255,255,255,.6)!important;font-size:10px!important;border-radius:8px 0 0 0}
 .leaflet-control-attribution a{color:rgba(150,200,255,.8)!important}
 body.light .leaflet-control-attribution{background:rgba(255,255,255,.7)!important;color:#333!important}

@@ -181,18 +181,31 @@ const hasTTS = 'speechSynthesis' in window;
 function pickVoice() {
   if (!hasTTS) return;
   const vs = speechSynthesis.getVoices();
-  esVoice = vs.find(v => /^es[-_](CO|419|MX|US)/i.test(v.lang)) || vs.find(v => /^es/i.test(v.lang)) || null;
+  if (!vs || !vs.length) return;
+  const es = vs.filter(v => /^es/i.test(v.lang));
+  if (!es.length) { esVoice = vs[0]; return; }
+
+  // Priorizar voz femenina natural y cálida en español
+  const femRegex = /(female|mujer|monica|mónica|paulina|sabina|laura|helena|dalia|paloma|sofia|sofía|lucia|lucía|elvira|victoria|soledad|marta|francisca|rosa|jimena|carmen|google.*español|natural|neural)/i;
+  const maleRegex = /(male|hombre|raul|raúl|pablo|jorge|david|carlos|diego|miguel|manuel|alvaro|álvaro)/i;
+
+  let best = es.find(v => femRegex.test(v.name));
+  if (!best) best = es.find(v => /^es[-_](CO|419|MX)/i.test(v.lang) && !maleRegex.test(v.name));
+  if (!best) best = es.find(v => !maleRegex.test(v.name));
+  esVoice = best || es[0];
 }
 if (hasTTS) { pickVoice(); speechSynthesis.onvoiceschanged = pickVoice; }
+
 function speak(text, priority = false) {
   if (!prefs.voice || !hasTTS || !text) return;
   try {
     if (priority) speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    u.lang = esVoice ? esVoice.lang : 'es-ES';
+    u.lang = esVoice ? esVoice.lang : 'es-CO';
     if (esVoice) u.voice = esVoice;
     u.volume = clamp(prefs.vol, 0.05, 1);
-    u.rate = 1.03;
+    u.rate = 0.96;   // Pacing suave y natural, no robótico
+    u.pitch = 1.15;  // Tono cálido, amigable y femenino
     speechSynthesis.speak(u);
   } catch (e) { /* sin voz */ }
 }
@@ -216,46 +229,37 @@ const map = L.map('map', { zoomControl: false, zoomSnap: 0.25, attributionContro
   .setView([startCenter.lat, startCenter.lon], 15);
 map.attributionControl.setPrefix(false);
 
-const tileGroup = L.layerGroup().addTo(map);
+let currentTileLayer = null;
 
 function applyMapStyle() {
-  tileGroup.clearLayers();
+  if (currentTileLayer) map.removeLayer(currentTileLayer);
+  const mapEl = $('map');
   const style = prefs.mapStyle || 'dark';
 
-  if (style === 'osm' || style === 'light') {
-    const osm = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  if (style === 'sat') {
+    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxNativeZoom: 18,
+      maxZoom: 20,
+      attribution: '© Esri, Maxar'
+    }).addTo(map);
+    mapEl.classList.remove('dark-tiles');
+    document.body.classList.remove('light');
+  } else if (style === 'osm' || style === 'light') {
+    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxNativeZoom: 19,
       maxZoom: 20,
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    });
-    tileGroup.addLayer(osm);
+    }).addTo(map);
+    mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
-  } else if (style === 'sat') {
-    const sat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxNativeZoom: 18,
-      maxZoom: 20,
-      attribution: '© Esri World Imagery'
-    });
-    const ref = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-      maxNativeZoom: 18,
-      maxZoom: 20
-    });
-    tileGroup.addLayer(sat);
-    tileGroup.addLayer(ref);
-    document.body.classList.remove('light');
   } else {
-    // dark (predeterminado para Tesla)
-    const base = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
-      maxNativeZoom: 18,
+    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro oscuro OLED
+    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxNativeZoom: 19,
       maxZoom: 20,
-      attribution: '© OpenStreetMap, Esri'
-    });
-    const ref = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', {
-      maxNativeZoom: 18,
-      maxZoom: 20
-    });
-    tileGroup.addLayer(base);
-    tileGroup.addLayer(ref);
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+    mapEl.classList.add('dark-tiles');
     document.body.classList.remove('light');
   }
 }
@@ -608,38 +612,100 @@ const alertState = new Map();
 function checkAlerts() {
   if (!pos) return;
   const maxD = prefs.alertDist;
-  const moving = pos.speed > 5 && pos.heading != null;
   let best = null;
-  for (const c of allCams()) {
-    if (Math.abs(c.lat - pos.lat) > 0.02) continue;
-    const d = dist(pos, c);
-    let st = alertState.get(c.id);
-    if (d > maxD) { if (st && d > maxD + 150) alertState.delete(c.id); continue; }
-    if (st && st.passed) continue;
-    let ahead = true;
-    if (moving) ahead = angDiff(pos.heading, bearing(pos, c)) < (d < 120 ? 70 : 40);
-    if (!ahead || d < 15) {
-      if (st && st.announced && d < 150) st.passed = true;
-      continue;
+
+  // CASO 1: Si hay una ruta activa, alertar EXCLUSIVAMENTE radares ubicados sobre el trayecto
+  if (nav && nav.active && nav.routeCams && nav.routeCams.length) {
+    const curAlong = nav.along || 0;
+    for (const item of nav.routeCams) {
+      const cam = item.cam;
+      if (!cam) continue;
+      const dAhead = item.along - curAlong;
+      let st = alertState.get(cam.id);
+
+      if (dAhead > maxD) {
+        if (st && dAhead > maxD + 150) alertState.delete(cam.id);
+        continue;
+      }
+      if (dAhead < 15) {
+        if (st && st.announced) st.passed = true;
+        continue;
+      }
+      if (st && st.passed) continue;
+
+      if (!best || dAhead < best.d) {
+        best = { cam, d: dAhead };
+      }
     }
-    if (!best || d < best.d) best = { cam: c, d };
+  } else {
+    // CASO 2: Conducción libre (sin destino programado).
+    // Para que un radar sea considerado "en el camino", debe cumplir:
+    // 1. El auto debe estar en movimiento (>= 8 km/h) con rumbo (heading) definido.
+    // 2. Debe estar al frente en un cono estrecho (<= 22 grados de diferencia).
+    // 3. Su distancia lateral (desvío de la trayectoria) debe ser menor a 22 metros (el ancho de la calzada).
+    const moving = pos.speed >= 8 && pos.heading != null;
+    if (moving) {
+      for (const c of allCams()) {
+        if (Math.abs(c.lat - pos.lat) > 0.02) continue;
+        const d = dist(pos, c);
+        let st = alertState.get(c.id);
+        if (d > maxD) { if (st && d > maxD + 150) alertState.delete(c.id); continue; }
+        if (st && st.passed) continue;
+
+        const brg = bearing(pos, c);
+        const diff = angDiff(pos.heading, brg);
+
+        // Estrictamente al frente (máximo 22°)
+        if (diff > 22) continue;
+
+        // Distancia lateral (distancia perpendicular al eje de la calle)
+        const latDist = Math.abs(d * Math.sin(toRad(diff)));
+        if (latDist > 22) continue; // Está en una calle vecina o paralela
+
+        // Distancia longitudinal hacia adelante
+        const longDist = d * Math.cos(toRad(diff));
+        if (longDist < 15) {
+          if (st && st.announced) st.passed = true;
+          continue;
+        }
+
+        if (!best || longDist < best.d) best = { cam: c, d: longDist };
+      }
+    }
   }
+
   if (best) {
     let st = alertState.get(best.cam.id);
     if (!st) { st = { announced: false, near: false, passed: false, startD: best.d }; alertState.set(best.cam.id, st); }
     if (!st.announced) { st.announced = true; announceCam(best.cam, best.d); }
     if (!st.near && best.d < 150) { st.near = true; beep([1046, 1046], 0.12); }
     activeAlert = { cam: best.cam, d: best.d, startD: Math.max(st.startD, best.d) };
-  } else activeAlert = null;
+  } else {
+    activeAlert = null;
+  }
   renderAlert();
   updateSpeedUI();
 }
+
 function announceCam(c, d) {
   const T = TYPE[c.type] || TYPE.speed;
-  if (c.type === 'police' || c.type === 'hazard') beep([740, 988], 0.12);
+  if (c.type === 'police') beep([740, 988], 0.12);
+  else if (c.type === 'hazard') beep([660, 880], 0.12);
   else beep([880, 1175, 1568], 0.11, 0.05);
-  let msg = `${T.voice} a ${spokenDist(d)}`;
-  if (c.maxspeed) msg += `. Límite ${c.maxspeed}`;
+
+  let msg = '';
+  if (c.type === 'speed') {
+    msg = `Atención: cámara de velocidad en tu camino a ${spokenDist(d)}`;
+    if (c.maxspeed) msg += `, límite ${c.maxspeed} kilómetros por hora`;
+  } else if (c.type === 'redlight') {
+    msg = `Atención: cámara de semáforo más adelante a ${spokenDist(d)}`;
+  } else if (c.type === 'police') {
+    msg = `Control policial reportado a ${spokenDist(d)}`;
+  } else if (c.type === 'hazard') {
+    msg = `Precaución: peligro en la vía a ${spokenDist(d)}`;
+  } else {
+    msg = `${T.label} en tu camino a ${spokenDist(d)}`;
+  }
   speak(msg, true);
 }
 function renderAlert() {
@@ -787,7 +853,7 @@ function recountRouteCams() {
       const r = segDist(c, a, coords[i + 1]);
       if (r.d < best) { best = r.d; along = cum[i] + r.t * (cum[i + 1] - cum[i]); }
     }
-    if (best < 35) list.push({ id: c.id, along });
+    if (best < 35) list.push({ id: c.id, along, cam: c });
   }
   nav.routeCams = list;
   $('pvCams').textContent = list.length;
@@ -1228,9 +1294,10 @@ $('startBtn').onclick = async () => {
   initAudio();
   if (ac && ac.state === 'suspended') { try { await ac.resume(); } catch (e) { /* ignorar */ } }
   beep([660, 990], 0.09);
-  if (hasTTS && prefs.voice) speak('Bienvenido. Alertas de radares activadas.');
+  if (hasTTS && prefs.voice) speak('Bienvenido. Alertas de radares en tu camino activadas.');
   started = true;
   $('start').hidden = true;
+  setTimeout(() => { map.invalidateSize(); }, 80);
   startGPS();
   requestWake();
   ensureCamerasAround(centerPos());

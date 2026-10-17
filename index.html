@@ -3,8 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>VELOX Drive · Suite de conducción para Tesla Model Y</title>
-<meta name="description" content="VELOX Drive: suite de conducción para el navegador del Tesla Model Y (Juniper). Velocímetro GPS con sonido de motor y navegación WAZE con alertas de cámaras de velocidad.">
+<title>VELOX Drive</title>
 <meta name="theme-color" content="#05070d">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -12,10 +11,10 @@
 <style>
   :root{
     --bg:#05070d;
-    --panel:rgba(255,255,255,.04);
-    --line:rgba(255,255,255,.09);
+    --panel:rgba(255,255,255,.035);
+    --line:rgba(255,255,255,.08);
     --txt:#eef3ff;
-    --mut:rgba(226,234,255,.58);
+    --mut:rgba(226,234,255,.45);
     --a1:#3aa8ff; --a2:#7b5cff;
     --w1:#33ccff; --w2:#14e0b4;
   }
@@ -27,127 +26,71 @@
     overflow:hidden;user-select:none;-webkit-user-select:none;
   }
 
-  /* ---------- Fondo animado ---------- */
   .bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none}
-  .orb{position:absolute;border-radius:50%;filter:blur(90px);opacity:.55;will-change:transform}
-  .orb.o1{width:60vw;height:60vw;left:-15vw;top:-25vw;background:radial-gradient(circle,#1b4dff 0%,transparent 65%);animation:drift1 22s ease-in-out infinite alternate}
-  .orb.o2{width:55vw;height:55vw;right:-18vw;bottom:-28vw;background:radial-gradient(circle,#00c2ff 0%,transparent 65%);animation:drift2 26s ease-in-out infinite alternate}
-  .orb.o3{width:35vw;height:35vw;left:40vw;top:30vh;background:radial-gradient(circle,#6a3cff 0%,transparent 65%);opacity:.3;animation:drift3 30s ease-in-out infinite alternate}
-  @keyframes drift1{to{transform:translate(8vw,6vh) scale(1.1)}}
-  @keyframes drift2{to{transform:translate(-6vw,-8vh) scale(1.08)}}
-  @keyframes drift3{to{transform:translate(-10vw,6vh) scale(.9)}}
-  .grid{
-    position:absolute;inset:0;
-    background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);
-    background-size:64px 64px;
-    mask-image:radial-gradient(ellipse at 50% 40%,#000 0%,transparent 75%);
-    -webkit-mask-image:radial-gradient(ellipse at 50% 40%,#000 0%,transparent 75%);
-    opacity:.5;
-  }
+  .orb{position:absolute;border-radius:50%;filter:blur(100px);opacity:.45}
+  .orb.o1{width:50vw;height:50vw;left:-10vw;top:-15vw;background:radial-gradient(circle,#1b4dff 0%,transparent 65%)}
+  .orb.o2{width:50vw;height:50vw;right:-10vw;bottom:-15vw;background:radial-gradient(circle,#00c2ff 0%,transparent 65%)}
 
-  /* ---------- Layout ---------- */
-  .app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;padding:clamp(18px,2.6vh,30px) clamp(22px,3vw,48px)}
+  .app{position:relative;z-index:1;height:100%;display:flex;flex-direction:column;justify-content:space-between;padding:clamp(20px,3.5vh,40px) clamp(24px,4vw,60px)}
 
-  header{display:flex;align-items:center;justify-content:space-between;gap:20px}
-  .brand{display:flex;align-items:center;gap:14px}
-  .logo{width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
-    background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 8px 28px rgba(58,120,255,.45),inset 0 1px 0 rgba(255,255,255,.35)}
-  .logo svg{width:26px;height:26px}
-  .brand-name{font-size:22px;font-weight:900;letter-spacing:.18em}
-  .brand-sub{font-size:11px;font-weight:600;letter-spacing:.32em;color:var(--mut);margin-top:2px}
+  /* Barra superior minimalista */
+  header{display:flex;align-items:center;justify-content:space-between}
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;
+    background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 8px 24px rgba(58,120,255,.35)}
+  .logo svg{width:22px;height:22px}
+  .brand-name{font-size:20px;font-weight:900;letter-spacing:.22em}
 
-  .hdr-right{display:flex;align-items:center;gap:12px}
-  .chip{display:flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:22px;
-    background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(14px);font-size:14px;font-weight:600;color:var(--mut)}
-  .dot{width:9px;height:9px;border-radius:50%;background:#ffb020;box-shadow:0 0 10px #ffb020}
-  .dot.ok{background:#2ee59d;box-shadow:0 0 10px #2ee59d}
-  .dot.bad{background:#ff4d6a;box-shadow:0 0 10px #ff4d6a}
-  .clock{font-size:20px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:.02em}
-  .icon-btn{width:48px;height:48px;border-radius:50%;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);
+  .hdr-right{display:flex;align-items:center;gap:14px}
+  .gps-status{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--mut)}
+  .dot{width:8px;height:8px;border-radius:50%;background:#ffb020;box-shadow:0 0 8px #ffb020}
+  .dot.ok{background:#2ee59d;box-shadow:0 0 8px #2ee59d}
+  .clock{font-size:22px;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums;letter-spacing:.04em;margin:0 4px}
+  .icon-btn{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:var(--panel);backdrop-filter:blur(14px);
     color:var(--txt);display:grid;place-items:center;cursor:pointer;transition:transform .12s,background .2s}
   .icon-btn:active{transform:scale(.92);background:rgba(255,255,255,.12)}
-  .icon-btn svg{width:22px;height:22px}
+  .icon-btn svg{width:20px;height:20px}
 
-  main{flex:1;display:flex;flex-direction:column;justify-content:center;gap:clamp(20px,4vh,44px);min-height:0}
-
-  .hero{text-align:left;max-width:900px}
-  .eyebrow{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:#9cc8ff;
-    padding:8px 14px;border-radius:999px;background:rgba(58,168,255,.1);border:1px solid rgba(58,168,255,.25)}
-  h1{font-size:clamp(34px,5.2vw,72px);font-weight:900;line-height:1.02;letter-spacing:-.03em;margin-top:18px}
-  h1 .grad{background:linear-gradient(100deg,#fff 10%,#8fd0ff 50%,#a58bff 90%);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .lead{margin-top:14px;font-size:clamp(15px,1.5vw,20px);line-height:1.55;color:var(--mut);max-width:720px}
-
-  /* ---------- Tarjetas de módulos ---------- */
-  .modules{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(16px,2vw,28px)}
+  /* Centro: 2 Grandes Tarjetas Minimalistas */
+  main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 0}
+  .modules{display:grid;grid-template-columns:1fr 1fr;gap:clamp(20px,3vw,44px);width:100%;max-width:1100px}
+  
   .card{
-    position:relative;display:flex;flex-direction:column;justify-content:space-between;gap:22px;
-    min-height:clamp(240px,36vh,380px);padding:clamp(22px,2.4vw,34px);
-    border-radius:28px;text-decoration:none;color:var(--txt);overflow:hidden;isolation:isolate;
-    background:linear-gradient(160deg,rgba(255,255,255,.07),rgba(255,255,255,.02));
-    border:1px solid rgba(255,255,255,.1);
-    box-shadow:0 30px 60px -20px rgba(0,0,0,.7);
-    transition:transform .25s cubic-bezier(.2,.8,.2,1),border-color .25s,box-shadow .25s;
-    animation:rise .7s cubic-bezier(.2,.8,.2,1) both;
+    position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
+    min-height:clamp(280px,46vh,420px);padding:clamp(28px,3vw,48px);
+    border-radius:32px;text-decoration:none;color:var(--txt);
+    background:linear-gradient(165deg,rgba(255,255,255,.06),rgba(255,255,255,.015));
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 30px 60px -20px rgba(0,0,0,.6);
+    transition:transform .22s cubic-bezier(.2,.8,.2,1),border-color .22s,box-shadow .22s;
   }
-  .card:nth-child(2){animation-delay:.1s}
-  @keyframes rise{from{opacity:0;transform:translateY(24px)}}
-  .card::before{content:"";position:absolute;inset:0;z-index:-1;opacity:.9;transition:opacity .3s}
-  .card.speed::before{background:radial-gradient(120% 90% at 100% 0%,rgba(58,120,255,.35),transparent 55%)}
-  .card.waze::before{background:radial-gradient(120% 90% at 100% 0%,rgba(51,204,255,.32),transparent 55%)}
-  .card::after{content:"";position:absolute;inset:-1px;border-radius:inherit;padding:1px;z-index:-1;opacity:0;transition:opacity .3s;
-    -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
-  .card.speed::after{background:linear-gradient(135deg,var(--a1),var(--a2))}
-  .card.waze::after{background:linear-gradient(135deg,var(--w1),var(--w2))}
-  .card:hover,.card:focus-visible{transform:translateY(-4px)}
-  .card:hover::after,.card:focus-visible::after{opacity:1}
-  .card:active{transform:scale(.975)}
-  .card.speed:active{box-shadow:0 0 0 2px var(--a1),0 20px 60px -10px rgba(58,120,255,.6)}
-  .card.waze:active{box-shadow:0 0 0 2px var(--w1),0 20px 60px -10px rgba(51,204,255,.55)}
+  .card:hover,.card:focus-visible{transform:translateY(-6px);border-color:rgba(255,255,255,.2);box-shadow:0 35px 70px -15px rgba(0,0,0,.8)}
+  .card:active{transform:scale(.97)}
 
-  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:16px}
-  .card-ico{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;flex-shrink:0}
-  .speed .card-ico{background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 12px 30px rgba(58,120,255,.45)}
-  .waze .card-ico{background:linear-gradient(135deg,var(--w1),var(--w2));box-shadow:0 12px 30px rgba(51,204,255,.4)}
-  .card-ico svg{width:38px;height:38px}
-  .tag{font-size:12px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;padding:7px 12px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.12);color:var(--mut)}
-  .tag.new{color:#06131c;background:linear-gradient(135deg,var(--w1),var(--w2));border:0}
+  .card-ico{
+    width:92px;height:92px;border-radius:28px;display:grid;place-items:center;margin-bottom:24px;
+    transition:transform .22s cubic-bezier(.2,.8,.2,1),box-shadow .22s;
+  }
+  .speed .card-ico{background:linear-gradient(135deg,var(--a1),var(--a2));box-shadow:0 14px 34px rgba(58,120,255,.35)}
+  .waze .card-ico{background:linear-gradient(135deg,var(--w1),var(--w2));box-shadow:0 14px 34px rgba(51,204,255,.3)}
+  .card:hover .card-ico{transform:scale(1.06)}
+  .card-ico svg{width:46px;height:46px}
 
-  .card h2{font-size:clamp(26px,2.8vw,40px);font-weight:900;letter-spacing:-.02em}
-  .card p{margin-top:8px;font-size:clamp(14px,1.25vw,17px);line-height:1.5;color:var(--mut);max-width:520px}
-  .feats{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-  .feats span{font-size:13px;font-weight:600;padding:7px 12px;border-radius:10px;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08)}
+  .card h2{font-size:clamp(30px,3.2vw,46px);font-weight:900;letter-spacing:-.02em}
+  .card p{margin-top:8px;font-size:clamp(15px,1.4vw,18px);font-weight:500;color:var(--mut);letter-spacing:.02em}
 
-  .card-cta{display:flex;align-items:center;justify-content:space-between}
-  .open{display:inline-flex;align-items:center;gap:10px;font-size:17px;font-weight:800;padding:14px 22px;border-radius:16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);transition:background .2s,gap .2s}
-  .card:hover .open{gap:16px}
-  .speed:hover .open{background:linear-gradient(135deg,var(--a1),var(--a2));border-color:transparent}
-  .waze:hover .open{background:linear-gradient(135deg,var(--w1),var(--w2));border-color:transparent;color:#04121b}
-  .open svg{width:20px;height:20px}
+  footer{display:flex;justify-content:center;align-items:center;font-size:12px;color:rgba(226,234,255,.25);letter-spacing:.1em;text-transform:uppercase}
 
-  /* Mini visualizaciones decorativas */
-  .viz{position:absolute;right:-30px;bottom:-40px;width:300px;height:300px;opacity:.16;z-index:-1;pointer-events:none}
-  .needle{transform-origin:150px 150px;animation:sweep 4.5s cubic-bezier(.45,0,.2,1) infinite alternate}
-  @keyframes sweep{from{transform:rotate(-120deg)}to{transform:rotate(95deg)}}
-  .ping{transform-origin:center;transform-box:fill-box;animation:ping 2.4s ease-out infinite}
-  .ping.d2{animation-delay:.8s}.ping.d3{animation-delay:1.6s}
-  @keyframes ping{from{transform:scale(.3);opacity:1}to{transform:scale(1.6);opacity:0}}
-
-  footer{display:flex;justify-content:space-between;align-items:center;gap:16px;font-size:12px;color:rgba(226,234,255,.4);padding-top:14px}
-  footer b{color:rgba(226,234,255,.65);font-weight:700}
-
-  @media (max-width:820px){
+  @media (max-width:768px){
     body{overflow:auto}
     .modules{grid-template-columns:1fr}
-    .chip.date{display:none}
+    .card{min-height:220px}
   }
-  @media (max-height:700px){ .lead{display:none} }
-  @media (prefers-reduced-motion:reduce){ *{animation:none!important} }
 </style>
 </head>
 <body>
 <div class="bg" aria-hidden="true">
-  <div class="orb o1"></div><div class="orb o2"></div><div class="orb o3"></div>
-  <div class="grid"></div>
+  <div class="orb o1"></div><div class="orb o2"></div>
 </div>
 
 <div class="app">
@@ -156,15 +99,11 @@
       <div class="logo" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5l8 14 8-14"/><path d="M8.5 5L12 11l3.5-6" opacity=".55"/></svg>
       </div>
-      <div>
-        <div class="brand-name">VELOX</div>
-        <div class="brand-sub">DRIVE SUITE</div>
-      </div>
+      <div class="brand-name">VELOX</div>
     </div>
     <div class="hdr-right">
-      <div class="chip" id="gpsChip" title="Estado del GPS"><span class="dot" id="gpsDot"></span><span id="gpsTxt">GPS</span></div>
-      <div class="chip date" id="dateChip">—</div>
-      <div class="chip"><span class="clock" id="clock">--:--</span></div>
+      <div class="gps-status" id="gpsStatus"><span class="dot" id="gpsDot"></span><span id="gpsTxt">GPS</span></div>
+      <span class="clock" id="clock">--:--</span>
       <button class="icon-btn" id="fsBtn" aria-label="Pantalla completa" title="Pantalla completa">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
       </button>
@@ -172,91 +111,47 @@
   </header>
 
   <main>
-    <section class="hero">
-      <span class="eyebrow">● Optimizado para Tesla Model Y · Juniper</span>
-      <h1>Tu cabina, <span class="grad">al siguiente nivel.</span></h1>
-      <p class="lead">Velocímetro inmersivo con sonido de motor y navegación con alertas de cámaras de velocidad. Todo desde el navegador de tu Tesla, sin instalar nada.</p>
-    </section>
-
     <nav class="modules" aria-label="Módulos">
       <a class="card speed" id="openSpeed" href="velocidad.html">
-        <svg class="viz" viewBox="0 0 300 300" aria-hidden="true">
-          <circle cx="150" cy="150" r="120" fill="none" stroke="#fff" stroke-width="10" stroke-dasharray="560 1000" transform="rotate(150 150 150)" stroke-linecap="round"/>
-          <line class="needle" x1="150" y1="150" x2="150" y2="50" stroke="#fff" stroke-width="10" stroke-linecap="round"/>
-          <circle cx="150" cy="150" r="14" fill="#fff"/>
-        </svg>
-        <div class="card-top">
-          <div class="card-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-5"/><path d="M3.5 18a9 9 0 1 1 17 0"/><circle cx="12" cy="14" r="1.6" fill="#fff"/></svg>
-          </div>
-          <span class="tag">Módulo 01</span>
+        <div class="card-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 14l4-5"/><path d="M3.5 18a9 9 0 1 1 17 0"/><circle cx="12" cy="14" r="1.6" fill="#fff"/></svg>
         </div>
-        <div>
-          <h2>Velocímetro &amp; Motor</h2>
-          <p>Velocidad en tiempo real por GPS, sonido sintetizado de 14 motores y efectos visuales que reaccionan a tu aceleración.</p>
-          <div class="feats"><span>GPS en vivo</span><span>14 motores</span><span>4 estilos visuales</span><span>Modo inmersivo</span></div>
-        </div>
-        <div class="card-cta">
-          <span class="open">Abrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
+        <h2>Velocímetro</h2>
+        <p>HUD &amp; Sonido de Motor</p>
       </a>
 
       <a class="card waze" id="openWaze" href="waze.html">
-        <svg class="viz" viewBox="0 0 300 300" aria-hidden="true">
-          <circle class="ping" cx="150" cy="150" r="60" fill="none" stroke="#fff" stroke-width="6"/>
-          <circle class="ping d2" cx="150" cy="150" r="60" fill="none" stroke="#fff" stroke-width="6"/>
-          <circle class="ping d3" cx="150" cy="150" r="60" fill="none" stroke="#fff" stroke-width="6"/>
-          <circle cx="150" cy="150" r="18" fill="#fff"/>
-        </svg>
-        <div class="card-top">
-          <div class="card-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="#04121b" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><rect x="8.5" y="7.2" width="7" height="5" rx="1.2"/><circle cx="12" cy="9.7" r="1.3"/></svg>
-          </div>
-          <span class="tag new">Nuevo</span>
+        <div class="card-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#04121b" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><rect x="8.5" y="7.2" width="7" height="5" rx="1.2"/><circle cx="12" cy="9.7" r="1.3"/></svg>
         </div>
-        <div>
-          <h2>WAZE</h2>
-          <p>Navegación giro a giro con avisos de cámaras de velocidad, límite de la vía, alertas por voz y mapa en vivo de la comunidad Waze.</p>
-          <div class="feats"><span>Radares de velocidad</span><span>Navegación por voz</span><span>Límite de vía</span><span>Reportes</span></div>
-        </div>
-        <div class="card-cta">
-          <span class="open">Abrir <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
-        </div>
+        <h2>Waze</h2>
+        <p>Radares &amp; Navegación</p>
       </a>
     </nav>
   </main>
 
-  <footer>
-    <span><b>VELOX Drive</b> v2.0 · Úsalo solo con el vehículo detenido o con un acompañante. Respeta siempre los límites de velocidad.</span>
-    <span>Mapas © OpenStreetMap</span>
-  </footer>
+  <footer>VELOX Drive</footer>
 </div>
 
 <script>
 "use strict";
 const $ = id => document.getElementById(id);
 
-/* Reloj y fecha */
 function tick(){
   const d = new Date();
   $('clock').textContent = d.toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',hour12:false});
-  const s = d.toLocaleDateString('es-CO',{weekday:'long',day:'numeric',month:'short'});
-  $('dateChip').textContent = s.charAt(0).toUpperCase() + s.slice(1);
 }
 tick(); setInterval(tick, 10000);
 
-/* Estado del permiso de GPS (sin solicitarlo todavía) */
 function setGps(state){
   const dot = $('gpsDot'), txt = $('gpsTxt');
-  dot.className = 'dot' + (state==='granted' ? ' ok' : state==='denied' ? ' bad' : '');
-  txt.textContent = state==='granted' ? 'GPS listo' : state==='denied' ? 'GPS bloqueado' : 'GPS pendiente';
+  dot.className = 'dot' + (state==='granted' ? ' ok' : '');
+  txt.textContent = state==='granted' ? 'GPS listo' : 'GPS';
 }
-if (!('geolocation' in navigator)) setGps('denied');
-else if (navigator.permissions && navigator.permissions.query) {
+if (navigator.permissions && navigator.permissions.query) {
   navigator.permissions.query({name:'geolocation'}).then(p => { setGps(p.state); p.onchange = () => setGps(p.state); }).catch(() => setGps('prompt'));
-} else setGps('prompt');
+}
 
-/* Pantalla completa */
 const isFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 $('fsBtn').onclick = () => {
   const el = document.documentElement;
