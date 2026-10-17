@@ -33,13 +33,17 @@ const DEFAULT_CENTER = { lat: 6.2442, lon: -75.5812 }; // Medellín
 const loadJSON = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* cuota llena */ } };
 
+const savedPrefs = loadJSON(PREFS_KEY, {});
+if (savedPrefs.tolerance === 5 || savedPrefs.tolerance == null) {
+  savedPrefs.tolerance = 0;
+}
 const prefs = Object.assign({
   voice: true, sound: true, vol: 0.8,
   soundMode: 'all', // 'all' (normal), 'alerts' (solo alertas), 'mute' (desactivado)
-  alertDist: 800, tolerance: 5,
+  alertDist: 800, tolerance: 0,
   mapStyle: 'dark', autoZoom: true, roadLimit: true,
   unit: 'kmh', showCams: true, lastPos: null
-}, loadJSON(PREFS_KEY, {}));
+}, savedPrefs);
 const savePrefs = () => saveJSON(PREFS_KEY, prefs);
 
 /* ---------------------------------------------------------------------
@@ -442,38 +446,11 @@ function applyMapStyle() {
     mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
   } else {
-    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro Waze u opción Tesla Minimalista
+    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro OLED Waze
     currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
-    applyMapTheme(mapTheme);
+    mapEl.classList.add('dark-tiles');
     document.body.classList.remove('light');
   }
-}
-
-let mapTheme = prefs.mapTheme || 'waze'; // 'waze' | 'tesla'
-function applyMapTheme(theme) {
-  mapTheme = theme;
-  prefs.mapTheme = theme;
-  savePrefs();
-
-  const mapEl = $('map');
-  const btn = $('themeBtn');
-  if (theme === 'tesla') {
-    mapEl.classList.remove('dark-tiles');
-    mapEl.classList.add('tesla-tiles');
-    document.body.classList.add('theme-tesla');
-    if (btn) btn.classList.add('on');
-  } else {
-    mapEl.classList.add('dark-tiles');
-    mapEl.classList.remove('tesla-tiles');
-    document.body.classList.remove('theme-tesla');
-    if (btn) btn.classList.remove('on');
-  }
-}
-
-function toggleMapTheme() {
-  const next = mapTheme === 'waze' ? 'tesla' : 'waze';
-  applyMapTheme(next);
-  toast(next === 'tesla' ? 'Estilo: Tesla Minimalista (Dark Matter)' : 'Estilo: Waze (Alto contraste)');
 }
 
 applyMapStyle();
@@ -573,8 +550,8 @@ setInterval(() => {
 
 /* Marcador del vehículo */
 const meIcon = L.divIcon({
-  className: '', iconSize: [64, 64], iconAnchor: [32, 32],
-  html: '<div class="me-wrap"><div class="me-acc"></div><div class="me-arrow"><svg viewBox="0 0 48 48"><path d="M24 4 L40 42 L24 33 L8 42 Z" fill="#33ccff" stroke="#fff" stroke-width="3" stroke-linejoin="round"/></svg></div></div>'
+  className: '', iconSize: [54, 54], iconAnchor: [27, 27],
+  html: '<div class="me-wrap"><div class="me-acc"></div><div class="me-arrow"><svg viewBox="0 0 48 48"><path d="M24 5 L39 41 L24 33 L9 41 Z" fill="#33ccff" stroke="#ffffff" stroke-width="3" stroke-linejoin="round"/><circle cx="24" cy="27" r="3" fill="#ffffff"/></svg></div></div>'
 });
 let meMarker = null, arrowRot = 0;
 function updateMe() {
@@ -586,15 +563,16 @@ function updateMe() {
   const el = meMarker.getElement();
   const arrow = el && el.querySelector('.me-arrow');
   if (arrow) {
-    const isNav = (nav && nav.active) || sim.on;
-    if (courseUp && isNav) {
-      // En modo rumbo arriba (3D), la calle se orienta hacia arriba, por lo que el auto apunta al frente
-      arrow.style.transform = 'rotate(0deg)';
-    } else if (pos.heading != null) {
-      const d = ((pos.heading - arrowRot) % 360 + 540) % 360 - 180;
-      arrowRot += d;
-      arrow.style.transform = `rotate(${arrowRot}deg)`;
+    let h = pos.heading;
+    if ((h == null || isNaN(h)) && nav && nav.coords && nav.coords.length >= 2) {
+      const seg = (nav.seg != null && nav.seg < nav.coords.length - 1) ? nav.seg : 0;
+      h = bearing(nav.coords[seg], nav.coords[seg + 1]);
     }
+    if (h == null || isNaN(h)) h = 0;
+
+    const d = ((h - arrowRot) % 360 + 540) % 360 - 180;
+    arrowRot += d;
+    arrow.style.transform = `rotate(${arrowRot}deg)`;
   }
 }
 
@@ -622,33 +600,38 @@ function followNow(animate) {
     }
   }
 
-  let tz = 16.5, pitch = 32;
+  let tz = 16.5, pitch = 58;
   if (isNav) {
-    // Ángulo automotriz 3D perfecto: perspectiva clara sin zonas negras en el horizonte
+    // Ángulo automotriz 3D bien acostado tipo Waze real
     if (dTo < 90) {
       tz = 18.0;
-      pitch = 22;
+      pitch = 48;
     } else if (dTo < 250) {
       tz = 17.25;
-      pitch = 26;
+      pitch = 54;
     } else if (dTo < 600) {
       tz = 16.5;
-      pitch = 32;
+      pitch = 58;
     } else {
       tz = (pos.speed > 80 ? 15.8 : 16.25);
-      pitch = 34;
+      pitch = 60;
     }
   } else if (prefs.autoZoom && Date.now() > manualZoomUntil) {
     const s = pos.speed;
     tz = s < 25 ? 17 : s < 60 ? 16.25 : s < 95 ? 15.5 : 15;
-    pitch = 0;
+    pitch = (courseUp && s > 15) ? 45 : 0;
   }
 
   if (Date.now() > manualZoomUntil && Math.abs(tz - z) >= 0.25) {
     z = tz;
   }
 
-  const hdg = (pos.heading != null && !isNaN(pos.heading)) ? pos.heading : 0;
+  let hdg = (pos.heading != null && !isNaN(pos.heading)) ? pos.heading : null;
+  if ((hdg == null || isNaN(hdg)) && nav && nav.coords && nav.coords.length >= 2) {
+    const seg = (nav.seg != null && nav.seg < nav.coords.length - 1) ? nav.seg : 0;
+    hdg = bearing(nav.coords[seg], nav.coords[seg + 1]);
+  }
+  if (hdg == null || isNaN(hdg)) hdg = 0;
   const mapEl = $('map');
 
   if (courseUp && isNav) {
@@ -664,9 +647,6 @@ function followNow(animate) {
     if (dial) dial.style.transform = 'rotate(0deg)';
   }
 
-  // Centrar el mapa directamente en la posición del vehículo.
-  // Gracias a la geometría CSS (top: -58%, left: -80%, transform-origin: 50% 50%),
-  // el vehículo queda anclado en (50% X, 72% Y) sin oscilar ni balancearse al cambiar de rumbo.
   map.setView([pos.lat, pos.lon], z, { animate: !!animate, duration: 0.3 });
 }
 map.on('dragstart', () => {
@@ -1739,6 +1719,15 @@ function startNav() {
   showingAlternatives = false;
   drawAllRoutes();
   nav.active = true;
+  if (nav.coords && nav.coords.length >= 2) {
+    const initHdg = bearing(nav.coords[0], nav.coords[1]);
+    if (pos) {
+      if (pos.heading == null || isNaN(pos.heading)) {
+        pos.heading = initHdg;
+      }
+    }
+    arrowRot = initHdg;
+  }
   $('preview').hidden = true;
   $('searchBox').hidden = true;
   $('routesSheet').hidden = true;
@@ -1746,6 +1735,8 @@ function startNav() {
   $('etaBar').hidden = false;
   document.body.classList.add('navigating');
   setFollow(true);
+  updateMe();
+  followNow(true);
   navUpdate();
   const first = nav.steps[0];
   const cams = nav.routeCams.length;
@@ -2241,7 +2232,6 @@ setInterval(updateStatus, 2000);
 /* ---------------------------------------------------------------------
    Controles del mapa
    --------------------------------------------------------------------- */
-if ($('themeBtn')) $('themeBtn').onclick = toggleMapTheme;
 $('recenter').onclick = () => { manualZoomUntil = 0; setFollow(true); };
 $('camBtn').onclick = () => {
   prefs.showCams = !prefs.showCams; savePrefs();
@@ -2262,40 +2252,6 @@ if ($('liveBtn')) {
     toast(showLiveTraffic ? 'Tráfico en tiempo real (TomTom / Waze Live) activado' : 'Tráfico en tiempo real desactivado');
   };
 }
-
-/* Pantalla completa */
-function toggleFullScreen() {
-  const doc = document;
-  const el = doc.documentElement;
-  const isFs = !!(doc.fullscreenElement || doc.webkitFullscreenElement || doc.mozFullScreenElement || doc.msFullscreenElement);
-  try {
-    if (!isFs) {
-      const req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
-      if (req) {
-        const p = req.call(el);
-        if (p && p.catch) p.catch(() => toast('Pantalla completa no permitida'));
-      } else {
-        toast('Pantalla completa no soportada');
-      }
-    } else {
-      const exit = doc.exitFullscreen || doc.webkitExitFullscreen || doc.mozCancelFullScreen || doc.msExitFullscreen;
-      if (exit) {
-        const p = exit.call(doc);
-        if (p && p.catch) p.catch(() => {});
-      }
-    }
-  } catch (e) {
-    toast('Pantalla completa no disponible');
-  }
-}
-$('fsBtn').onclick = toggleFullScreen;
-['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange'].forEach(ev => {
-  document.addEventListener(ev, () => {
-    const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement);
-    $('fsBtn').classList.toggle('on', isFs);
-    setTimeout(() => map.invalidateSize(), 200);
-  });
-});
 
 /* ---------------------------------------------------------------------
    Ajustes
