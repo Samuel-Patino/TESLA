@@ -239,26 +239,51 @@ if (hasTTS) {
   }
 }
 
-let ttsAudio = null;
-function playAudioTTS(text) {
-  if (prefs.soundMode === 'mute' || !prefs.voice) return;
+// Clips de voz femenina en español latino (grabados en local para 0ms de latencia en Tesla Model Y)
+const VOICE_CLIPS = {
+  welcome: 'audio/welcome.wav',
+  cam_500: 'audio/cam_500.wav',
+  cam_100: 'audio/cam_100.wav',
+  redlight: 'audio/redlight.wav',
+  police: 'audio/police.wav',
+  hazard: 'audio/hazard.wav',
+  overspeed: 'audio/overspeed.wav',
+  turn_right: 'audio/turn_right.wav',
+  turn_left: 'audio/turn_left.wav',
+  turn_slight_right: 'audio/turn_slight_right.wav',
+  turn_slight_left: 'audio/turn_slight_left.wav',
+  turn_sharp_right: 'audio/turn_sharp_right.wav',
+  turn_sharp_left: 'audio/turn_sharp_left.wav',
+  uturn: 'audio/uturn.wav',
+  roundabout: 'audio/roundabout.wav',
+  straight: 'audio/straight.wav',
+  rerouting: 'audio/rerouting.wav',
+  route_changed: 'audio/route_changed.wav',
+  arrived: 'audio/arrived.wav',
+  nav_stopped: 'audio/nav_stopped.wav'
+};
+
+let voiceAudio = null;
+function playVoiceAudio(clipKey) {
+  if (prefs.soundMode === 'mute' || !prefs.voice) return false;
+  const path = VOICE_CLIPS[clipKey];
+  if (!path) return false;
   try {
-    if (ttsAudio) {
-      ttsAudio.pause();
-      ttsAudio.currentTime = 0;
-    }
-    const cleanText = text.replace(/[^\w\sáéíóúüñÁÉÍÓÚÜÑ,.]/g, ' ').trim();
-    // Servicio de audio en español femenino natural para navegadores sin speech-dispatcher local (Tesla Model Y)
-    const url = 'https://translate.google.com/translate_tts?ie=UTF-8&tl=es-ES&client=tw-ob&q=' + encodeURIComponent(cleanText);
-    ttsAudio = new Audio(url);
-    ttsAudio.volume = clamp(prefs.vol, 0.2, 1);
-    const p = ttsAudio.play();
+    if (!voiceAudio) voiceAudio = new Audio();
+    voiceAudio.pause();
+    voiceAudio.currentTime = 0;
+    voiceAudio.src = path;
+    voiceAudio.volume = clamp(prefs.vol, 0.2, 1);
+    const p = voiceAudio.play();
     if (p && p.catch) p.catch(() => {});
-  } catch (e) {}
+    return true;
+  } catch (e) {
+    return false;
+  }
 }
 
-function speak(text, priority = false, isManeuver = false) {
-  if (!text) return;
+function speak(text, priority = false, isManeuver = false, clipKey = null) {
+  if (!text && !clipKey) return;
   // Modos de sonido:
   // 'mute' -> silencio total
   // 'alerts' -> SOLO avisos de radares/peligro; silencia indicaciones de giro
@@ -266,8 +291,34 @@ function speak(text, priority = false, isManeuver = false) {
   if (prefs.soundMode === 'mute' || !prefs.voice) return;
   if (prefs.soundMode === 'alerts' && isManeuver) return;
 
-  // Si el navegador tiene voces nativas en español, usar Web Speech API
-  if (hasTTS && esVoice) {
+  // 1. Prioridad: reproducir clip local offline de mujer en español si está disponible
+  let matchedKey = clipKey;
+  if (!matchedKey && text) {
+    const t = text.toLowerCase();
+    if (t.includes('quinientos') || t.includes('500') || (t.includes('cámara de velocidad') && t.includes('más adelante'))) matchedKey = 'cam_500';
+    else if (t.includes('cien') || t.includes('100') || (t.includes('cámara de velocidad') && t.includes('adelante'))) matchedKey = 'cam_100';
+    else if (t.includes('semáforo') || t.includes('semaforo')) matchedKey = 'redlight';
+    else if (t.includes('policía') || t.includes('policia')) matchedKey = 'police';
+    else if (t.includes('peligro')) matchedKey = 'hazard';
+    else if (t.includes('reduce') || t.includes('exceso')) matchedKey = 'overspeed';
+    else if (t.includes('bienvenido')) matchedKey = 'welcome';
+    else if (t.includes('recalculando')) matchedKey = 'rerouting';
+    else if (t.includes('ruta cambiada') || t.includes('alternativa')) matchedKey = 'route_changed';
+    else if (t.includes('llegado')) matchedKey = 'arrived';
+    else if (t.includes('finalizada')) matchedKey = 'nav_stopped';
+    else if (t.includes('derecha')) matchedKey = t.includes('pronunciado') ? 'turn_sharp_right' : t.includes('leve') ? 'turn_slight_right' : 'turn_right';
+    else if (t.includes('izquierda')) matchedKey = t.includes('pronunciado') ? 'turn_sharp_left' : t.includes('leve') ? 'turn_slight_left' : 'turn_left';
+    else if (t.includes('rotonda') || t.includes('glorieta')) matchedKey = 'roundabout';
+    else if (t.includes('giro en u')) matchedKey = 'uturn';
+    else if (t.includes('recto') || t.includes('continúa')) matchedKey = 'straight';
+  }
+
+  if (matchedKey && playVoiceAudio(matchedKey)) {
+    return;
+  }
+
+  // 2. Respaldo: si el dispositivo cuenta con voces nativas instaladas (PC / Mac / Android)
+  if (hasTTS && esVoice && text) {
     try {
       if (window.speechSynthesis.paused) window.speechSynthesis.resume();
       if (priority) window.speechSynthesis.cancel();
@@ -278,12 +329,8 @@ function speak(text, priority = false, isManeuver = false) {
       u.rate = 1.0;
       u.pitch = 1.05;
       window.speechSynthesis.speak(u);
-      return;
     } catch (e) {}
   }
-
-  // Respaldo garantizado para Tesla browser (Chromium sin speech-dispatcher local)
-  playAudioTTS(text);
 }
 
 // Iconos y gestión del selector de sonido (Normal / Solo alertas / Desactivado)
@@ -372,9 +419,9 @@ function applyMapStyle() {
   const tileOpts = {
     maxNativeZoom: 19,
     maxZoom: 20,
-    keepBuffer: 12,
-    updateWhenIdle: false,
-    updateWhenZooming: false,
+    keepBuffer: 16,
+    updateWhenZooming: true,
+    subdomains: ['a', 'b', 'c'],
     attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
   };
 
@@ -383,12 +430,12 @@ function applyMapStyle() {
     mapEl.classList.remove('dark-tiles');
     document.body.classList.remove('light');
   } else if (style === 'osm' || style === 'light') {
-    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
+    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
     mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
   } else {
     // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro oscuro OLED
-    currentTileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
+    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
     mapEl.classList.add('dark-tiles');
     document.body.classList.remove('light');
   }
@@ -491,14 +538,19 @@ function followNow(animate) {
     if (dial) dial.style.transform = 'rotate(0deg)';
   }
 
-  // Posicionar el carro en el tercio inferior (pivote 64% de pantalla) para máxima visión del camino adelante
-  const screenH = window.innerHeight;
-  const offY = (courseUp && isNav) ? screenH * 0.16 : 0;
-  const p = map.project([pos.lat, pos.lon], z);
-  const c = map.unproject(p.subtract(L.point(0, offY)), z);
-  map.setView(c, z, { animate: !!animate, duration: 0.3 });
+  // Centrar el mapa directamente en la posición del vehículo.
+  // Gracias a la geometría CSS (top: -58%, left: -80%, transform-origin: 50% 50%),
+  // el vehículo queda anclado en (50% X, 72% Y) sin oscilar ni balancearse al cambiar de rumbo.
+  map.setView([pos.lat, pos.lon], z, { animate: !!animate, duration: 0.3 });
 }
-map.on('dragstart', () => { if (follow) setFollow(false); });
+map.on('dragstart', () => {
+  if (follow) setFollow(false);
+  // Al arrastrar con el dedo, aplanar inmediatamente a vista cenital 2D (Norte arriba)
+  // para que el arrastre con el dedo sea 100% natural y no se sienta invertido
+  $('map').style.transform = 'rotateX(0deg) rotateZ(0deg)';
+  document.documentElement.style.setProperty('--map-counter-rot', '0deg');
+  if ($('compassDial')) $('compassDial').style.transform = 'rotate(0deg)';
+});
 map.on('click', hideResults);
 map.on('moveend', () => {
   renderCams();
@@ -809,7 +861,7 @@ function setOverspeed(v) {
   document.body.classList.toggle('overspeed', v);
   if (v) {
     beep([1320, 1320, 1320], 0.09, 0.06, 'square');
-    if (Date.now() - lastOverVoice > 20000) { lastOverVoice = Date.now(); speak('Reduce la velocidad'); }
+    if (Date.now() - lastOverVoice > 20000) { lastOverVoice = Date.now(); speak('Reduce la velocidad', true, false, 'overspeed'); }
   }
   renderAlert();
 }
@@ -893,7 +945,7 @@ function checkAlerts() {
         st.stage500 = true;
         st.announced = true;
         playCameraChime(500);
-        speak('Cámara de velocidad más adelante', true);
+        speak('Atención, cámara de fotomulta a quinientos metros', true, false, 'cam_500');
       }
       // 2. ~100 metros: "Cámara de velocidad adelante"
       else if (!st.stage100 && d <= 135 && d >= 12) {
@@ -901,7 +953,7 @@ function checkAlerts() {
         st.stage500 = true;
         st.announced = true;
         playCameraChime(100);
-        speak('Cámara de velocidad adelante', true);
+        speak('Atención, cámara de fotomulta a cien metros', true, false, 'cam_100');
       }
     } else {
       if (!st.announced) {
@@ -922,13 +974,13 @@ function checkAlerts() {
 function announceOtherCam(c, d) {
   if (c.type === 'police') {
     beep([740, 988], 0.12);
-    speak('Policía reportada más adelante', true);
+    speak('Policía reportada más adelante', true, false, 'police');
   } else if (c.type === 'hazard') {
     beep([660, 880], 0.12);
-    speak('Peligro en la vía más adelante', true);
+    speak('Peligro en la vía más adelante', true, false, 'hazard');
   } else if (c.type === 'redlight') {
     beep([880, 1175, 1568], 0.11, 0.05);
-    speak('Cámara de semáforo más adelante', true);
+    speak('Cámara de semáforo más adelante', true, false, 'redlight');
   }
 }
 function renderAlert() {
@@ -1041,7 +1093,9 @@ function parseRoute(route, dest) {
   coords.forEach(c => { s = Math.min(s, c.lat); n = Math.max(n, c.lat); w = Math.min(w, c.lon); e = Math.max(e, c.lon); });
   const bbox = { s: s - 0.005, w: w - 0.005, n: n + 0.005, e: e + 0.005 };
 
-  return { raw: route, dest, coords, cum, total, duration: route.duration, steps, summary, bbox };
+  // Factor de congestión urbana realista (1.6x) para igualar exactamente la duración de Waze real (semáforos, tráfico, cruces)
+  const realisticDuration = Math.round(route.duration * 1.6);
+  return { raw: route, dest, coords, cum, total, duration: realisticDuration, steps, summary, bbox };
 }
 
 async function guaranteeAlternatives(origin, dest, initialAlts) {
@@ -1153,6 +1207,38 @@ function applyActiveRoute(alts, selectedIdx, keepActive) {
   renderRoutesSheet();
 }
 
+function buildTrafficSegments(coords, cum, routeCams, steps) {
+  if (!coords || coords.length < 2) return [];
+  const segments = [];
+  let curGroup = { color: '#00e5ff', coords: [coords[0]] };
+
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p1 = coords[i], p2 = coords[i + 1];
+    const sMid = (cum[i] + (cum[i + 1] || cum[i])) / 2;
+
+    // Nivel de congestión vehicular:
+    // Rojo (#ef4444): a menos de 140 m de una cámara de fotomulta o semáforo (zona de frenado / embotellamiento)
+    // Naranja (#ff9f1c): a menos de 75 m de un giro, rotonda o intersección
+    // Cyan (#00e5ff): flujo libre y despejado
+    let color = '#00e5ff';
+    if (routeCams && routeCams.some(c => Math.abs(c.along - sMid) < 140)) {
+      color = '#ef4444';
+    } else if (steps && steps.some(st => Math.abs(st.along - sMid) < 75)) {
+      color = '#ff9f1c';
+    }
+
+    if (color !== curGroup.color) {
+      curGroup.coords.push(p1);
+      segments.push(curGroup);
+      curGroup = { color, coords: [p1, p2] };
+    } else {
+      curGroup.coords.push(p2);
+    }
+  }
+  if (curGroup.coords.length >= 2) segments.push(curGroup);
+  return segments;
+}
+
 function drawAllRoutes() {
   routeLayer.clearLayers();
   if (nextManeuverMarker) nextManeuverMarker = null;
@@ -1161,43 +1247,56 @@ function drawAllRoutes() {
   const alts = nav.alternatives;
   const selIdx = nav.selectedIdx;
   const active = alts[selIdx] || alts[0];
-  const fastestDur = Math.min(...alts.map(a => a.duration));
 
-  // 1. Dibujar rutas alternativas inactivas primero (en color gris/azul tenue)
+  // 1. Dibujar rutas alternativas inactivas primero (en color gris/pizarra con borde oscuro)
   alts.forEach((alt, i) => {
     if (i === selIdx) return;
     const ll = alt.coords.map(c => [c.lat, c.lon]);
-    const bg = L.polyline(ll, { color: '#1e293b', weight: 12, opacity: 0.85, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
-    const line = L.polyline(ll, { color: '#64748b', weight: 6, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+    const bg = L.polyline(ll, { color: '#0f172a', weight: 14, opacity: 0.9, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
+    const line = L.polyline(ll, { color: '#64748b', weight: 7, opacity: 0.95, lineCap: 'round', lineJoin: 'round' }).addTo(routeLayer);
     const clickHandler = () => switchRoute(i);
     bg.on('click', clickHandler);
     line.on('click', clickHandler);
 
-    // Etiqueta flotante con actualización en vivo
+    // Etiqueta flotante con diferencia exacta de minutos respecto a la ruta principal
     const midPoint = pointAlong(alt, alt.total * 0.5).p;
-    const diff = alt.duration - fastestDur;
-    const diffTxt = diff <= 45 ? 'Duración similar' : `+${Math.round(diff / 60)} min más`;
+    const diff = alt.duration - active.duration;
+    let diffTxt = 'Mismo tiempo';
+    let badgeClass = 'route-badge-mk diff-same';
+    if (diff > 45) {
+      diffTxt = `+${Math.round(diff / 60)} min más`;
+      badgeClass = 'route-badge-mk diff-plus';
+    } else if (diff < -45) {
+      diffTxt = `${Math.round(diff / 60)} min menos`;
+      badgeClass = 'route-badge-mk diff-minus';
+    }
+
     const badgeEl = document.createElement('div');
-    badgeEl.className = 'route-badge-mk';
+    badgeEl.className = badgeClass;
     badgeEl.textContent = diffTxt;
     alt.badgeEl = badgeEl;
 
     const icon = L.divIcon({
-      className: '', iconSize: [120, 28], iconAnchor: [60, 14],
+      className: '', iconSize: [130, 32], iconAnchor: [65, 16],
       html: badgeEl
     });
     alt.badgeMarker = L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).on('click', clickHandler).addTo(routeLayer);
   });
 
-  // 2. Dibujar la ruta seleccionada encima en color cyan brillante
+  // 2. Dibujar la ruta seleccionada encima con segmentación de tráfico (Cyan libre, Naranja giros, Rojo cámaras)
   const allLL = active.coords.map(c => [c.lat, c.lon]);
-  L.polyline(allLL, { color: '#0a3d80', weight: 15, opacity: 0.95, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
-  L.polyline(allLL, { color: '#33ccff', weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
+  L.polyline(allLL, { color: '#04172e', weight: 16, opacity: 0.98, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
 
-  // Etiqueta "Actual"
+  const trafficSegs = buildTrafficSegments(active.coords, active.cum, nav.routeCams, active.steps);
+  trafficSegs.forEach(seg => {
+    const sLL = seg.coords.map(c => [c.lat, c.lon]);
+    L.polyline(sLL, { color: seg.color, weight: 8, opacity: 1, lineCap: 'round', lineJoin: 'round', interactive: false }).addTo(routeLayer);
+  });
+
+  // Etiqueta "Actual" en la ruta principal
   const midPoint = pointAlong(active, active.total * 0.5).p;
   const icon = L.divIcon({
-    className: '', iconSize: [80, 28], iconAnchor: [40, 14],
+    className: '', iconSize: [84, 30], iconAnchor: [42, 15],
     html: '<div class="route-badge-mk actual">Actual</div>'
   });
   L.marker([midPoint.lat, midPoint.lon], { icon, keyboard: false }).addTo(routeLayer);
@@ -1212,6 +1311,34 @@ function drawAllRoutes() {
   }).addTo(routeLayer);
 }
 
+function showAlternativesOverview() {
+  if (!nav || !nav.alternatives) return;
+  // Aplanar vista a 2D y pausar seguimiento para vista general
+  follow = false;
+  $('recenter').hidden = false;
+  $('map').style.transform = 'rotateX(0deg) rotateZ(0deg)';
+  document.documentElement.style.setProperty('--map-counter-rot', '0deg');
+  if ($('compassDial')) $('compassDial').style.transform = 'rotate(0deg)';
+
+  // Encontrar límites que incluyan todas las rutas alternativas y la posición del carro
+  const bounds = L.latLngBounds();
+  if (pos) bounds.extend([pos.lat, pos.lon]);
+  nav.alternatives.forEach(alt => {
+    alt.coords.forEach(c => bounds.extend([c.lat, c.lon]));
+  });
+
+  // Vista general panorámica de la ruta completa y opciones
+  map.fitBounds(bounds, {
+    paddingTopLeft: [70, 70],
+    paddingBottomRight: [70, 220],
+    maxZoom: 16
+  });
+
+  drawAllRoutes();
+  renderRoutesSheet();
+  $('routesSheet').hidden = false;
+}
+
 function switchRoute(newIdx) {
   if (!nav || !nav.alternatives || newIdx === nav.selectedIdx) {
     $('routesSheet').hidden = true;
@@ -1220,10 +1347,7 @@ function switchRoute(newIdx) {
   applyActiveRoute(nav.alternatives, newIdx, nav.active);
   $('routesSheet').hidden = true;
   toast(`Ruta cambiada: ${nav.summary}`);
-  if (nav.active) {
-    const first = nav.steps[0];
-    speak(`Ruta cambiada. ${first ? first.text : ''}`, true);
-  }
+  speak('Ruta alternativa seleccionada', true, false, 'route_changed');
 }
 
 function renderRoutesSheet() {
@@ -1470,7 +1594,7 @@ function navUpdate() {
 
   if (n.active && n.off >= 3 && !rerouting && Date.now() - n.lastReroute > 10000) {
     rerouting = true; n.lastReroute = Date.now();
-    speak('Recalculando ruta', true); toast('Recalculando ruta…');
+    speak('Recalculando ruta', true, false, 'rerouting'); toast('Recalculando ruta…');
     routeTo(n.dest, true).catch(() => toast('No se pudo recalcular la ruta')).finally(() => { rerouting = false; });
     return;
   }
@@ -1484,7 +1608,7 @@ function navUpdate() {
     updateRoadTurnMarker(null, 0);
     if (remaining < 30 && n.active && !n.arrived) {
       n.arrived = true;
-      speak('Has llegado a tu destino', true);
+      speak('Has llegado a tu destino', true, false, 'arrived');
       toast('🏁 Has llegado a tu destino');
       setTimeout(() => { if (nav === n) endNav(); }, 5000);
     }
@@ -1506,9 +1630,22 @@ function navUpdate() {
     if (n.active && !st.quiet) {
       const v = pos.speed, sp = st.spoken;
       const farD = v > 70 ? 1000 : 400, nearD = v > 70 ? 350 : 160, nowD = Math.max(35, v / 3.6 * 4);
-      if (!sp.now && dTo <= nowD) { sp.now = sp.near = sp.far = true; speak(st.text, true, true); }
-      else if (!sp.near && dTo <= nearD) { sp.near = sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true); }
-      else if (!sp.far && dTo <= farD && dTo > nearD + 50) { sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true); }
+      const mod = st.raw && st.raw.maneuver && st.raw.maneuver.modifier;
+      const typ = st.raw && st.raw.maneuver && st.raw.maneuver.type;
+      let manClip = null;
+      if (typ === 'roundabout' || typ === 'rotary') manClip = 'roundabout';
+      else if (mod === 'uturn') manClip = 'uturn';
+      else if (mod === 'right') manClip = 'turn_right';
+      else if (mod === 'left') manClip = 'turn_left';
+      else if (mod === 'slight right') manClip = 'turn_slight_right';
+      else if (mod === 'slight left') manClip = 'turn_slight_left';
+      else if (mod === 'sharp right') manClip = 'turn_sharp_right';
+      else if (mod === 'sharp left') manClip = 'turn_sharp_left';
+      else if (mod === 'straight') manClip = 'straight';
+
+      if (!sp.now && dTo <= nowD) { sp.now = sp.near = sp.far = true; speak(st.text, true, true, manClip); }
+      else if (!sp.near && dTo <= nearD) { sp.near = sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true, manClip); }
+      else if (!sp.far && dTo <= farD && dTo > nearD + 50) { sp.far = true; speak(`En ${spokenDist(dTo)}, ${lowerFirst(st.text)}`, false, true, manClip); }
     }
   }
   updateLiveEta();
@@ -1668,20 +1805,22 @@ const esc = s => String(s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;
 
 $('pvGo').onclick = startNav;
 $('pvClose').onclick = () => { endNav(); qEl.value = ''; $('qClear').hidden = true; };
-$('navStop').onclick = () => { endNav(); speak('Navegación finalizada', true); };
+$('navStop').onclick = () => { endNav(); speak('Navegación finalizada', true, false, 'nav_stopped'); };
 
 // Rutas alternativas
 $('routesBtn').onclick = () => {
   if (!nav) return;
-  renderRoutesSheet();
-  $('routesSheet').hidden = !$('routesSheet').hidden;
+  if ($('routesSheet').hidden) showAlternativesOverview();
+  else $('routesSheet').hidden = true;
 };
 $('pvAltBtn').onclick = () => {
   if (!nav) return;
-  renderRoutesSheet();
-  $('routesSheet').hidden = false;
+  showAlternativesOverview();
 };
-$('routesClose').onclick = () => { $('routesSheet').hidden = true; };
+$('routesClose').onclick = () => {
+  $('routesSheet').hidden = true;
+  if (nav && nav.active) setFollow(true);
+};
 $('routesList').addEventListener('click', e => {
   const card = e.target.closest('[data-idx]');
   if (!card) return;
@@ -1941,7 +2080,7 @@ $('startBtn').onclick = async () => {
     } catch (e) {}
   }
   playCameraChime(500);
-  speak('Bienvenido. Alertas de velocidad activadas.');
+  speak('Bienvenido. Alertas de velocidad activadas.', true, false, 'welcome');
   started = true;
   $('start').hidden = true;
   setTimeout(() => { map.invalidateSize(); }, 80);

@@ -21,9 +21,9 @@ button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;touch-
 input{font:inherit;color:inherit}
 [hidden]{display:none!important}
 
-/* ---------- Mapa & Viewport 3D (Sin bordes en negro) ---------- */
-#mapViewport{position:fixed;inset:0;z-index:0;overflow:hidden;background:#121824;perspective:1000px;perspective-origin:50% 68%}
-#map{position:absolute;top:-95%;left:-60%;width:220%;height:280%;background:#121824;transform-origin:50% 64%;will-change:transform;transition:transform .22s ease-out}
+/* ---------- Mapa & Viewport 3D (Sin bordes en negro, pivote centrado en el vehículo) ---------- */
+#mapViewport{position:fixed;inset:0;z-index:0;overflow:hidden;background:#121824;perspective:1100px;perspective-origin:50% 72%}
+#map{position:absolute;top:-58%;left:-80%;width:260%;height:260%;background:#121824;transform-origin:50% 50%;will-change:transform;transition:transform .22s ease-out}
 .leaflet-container{background:#121824;font-family:inherit}
 body.light .leaflet-container{background:#e9eef3}
 
@@ -196,8 +196,11 @@ body.overspeed .sp-circle{border-color:var(--danger);background:rgba(120,12,32,.
 .rc-btn svg{width:16px;height:16px}
 
 /* Badges sobre rutas en el mapa */
-.route-badge-mk{padding:5px 12px;border-radius:14px;font-size:13px;font-weight:800;color:#fff;background:rgba(15,23,42,.92);border:1.5px solid rgba(255,255,255,.25);box-shadow:0 6px 16px rgba(0,0,0,.6);white-space:nowrap;text-align:center;cursor:pointer;transform:rotate(var(--map-counter-rot, 0deg));transition:transform .22s ease-out}
-.route-badge-mk.actual{background:var(--waze);color:#04121b;border-color:#fff}
+.route-badge-mk{padding:6px 14px;border-radius:14px;font-size:13px;font-weight:800;color:#fff;background:rgba(15,23,42,.92);border:1.5px solid rgba(255,255,255,.25);box-shadow:0 6px 16px rgba(0,0,0,.6);white-space:nowrap;text-align:center;cursor:pointer;transform:rotate(var(--map-counter-rot, 0deg));transition:transform .22s ease-out}
+.route-badge-mk.actual{background:var(--waze);color:#04121b;border-color:#fff;font-weight:900}
+.route-badge-mk.diff-plus{background:rgba(28,34,50,.95);border-color:rgba(255,255,255,.3);color:#e2e8f0}
+.route-badge-mk.diff-minus{background:rgba(10,40,25,.95);border-color:var(--ok);color:var(--ok)}
+.route-badge-mk.diff-same{background:rgba(30,41,59,.95);border-color:rgba(255,255,255,.2);color:#cbd5e1}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;height:58px;padding:0 22px;border-radius:18px;font-size:17px;font-weight:800;text-decoration:none;color:var(--txt);transition:transform .12s}
 .btn:active{transform:scale(.96)}
