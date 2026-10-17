@@ -66,7 +66,26 @@
     if (senderView) senderView.hidden = false;
 
     const targetCode = codeParam || prompt("Ingresa el código que aparece en la pantalla del Tesla:") || "";
-    $('targetCodeBadge').textContent = targetCode ? `Tesla: ${targetCode}` : "Sin vincular";
+    const targetBadge = $('targetCodeBadge');
+    if (targetBadge) {
+      targetBadge.textContent = targetCode ? `Tesla: ${targetCode}` : "Sin vincular";
+    }
+
+    // Detección de iPhone / iOS
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || 
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+    const iosAlert = $('iosAlertCard');
+    const optSource = $('optSource');
+    const senderSubtitle = $('senderSubtitle');
+
+    if (isIOS) {
+      if (iosAlert) iosAlert.hidden = false;
+      if (optSource) optSource.value = 'camera-back';
+      if (senderSubtitle) {
+        senderSubtitle.textContent = 'En iPhone transmite tu cámara en vivo con audio hacia el Tesla.';
+      }
+    }
 
     let localPeer = null;
     let localStream = null;
@@ -75,22 +94,44 @@
     let startTime = 0;
 
     const btnStart = $('btnStartShare');
+    const btnStartTxt = $('btnStartTxt');
     const senderPreview = $('senderPreview');
     const broadcastStatus = $('broadcastStatus');
     const shareTimeEl = $('shareTimer');
 
+    function updateBtnLabel() {
+      if (!btnStartTxt) return;
+      if (localStream) {
+        btnStartTxt.textContent = 'Detener Transmisión';
+      } else {
+        const src = optSource ? optSource.value : 'screen';
+        btnStartTxt.textContent = src === 'screen' ? 'Iniciar Transmisión de Pantalla' : 'Iniciar Transmisión de Cámara';
+      }
+    }
+
+    if (optSource) {
+      optSource.onchange = () => {
+        updateBtnLabel();
+      };
+      updateBtnLabel();
+    }
+
     // Inicializar peer del celular
-    localPeer = new Peer(null, { debug: 1 });
+    try {
+      localPeer = new Peer(null, { debug: 1 });
 
-    localPeer.on('open', id => {
-      statusDot.className = 'dot ok';
-      statusTxt.textContent = 'Listo para transmitir';
-    });
+      localPeer.on('open', id => {
+        if (statusDot) statusDot.className = 'dot ok';
+        if (statusTxt) statusTxt.textContent = 'Listo para transmitir';
+      });
 
-    localPeer.on('error', err => {
-      console.warn('Error Peer Celular:', err);
-      toast('Error de conexión: ' + (err.message || 'Intenta de nuevo'));
-    });
+      localPeer.on('error', err => {
+        console.warn('Error Peer Celular:', err);
+        toast('Error de conexión: ' + (err.message || 'Intenta de nuevo'));
+      });
+    } catch (e) {
+      console.warn('Error al crear localPeer:', e);
+    }
 
     btnStart.onclick = async () => {
       if (localStream) {
@@ -103,6 +144,7 @@
         return;
       }
 
+      const source = optSource ? optSource.value : 'screen';
       const quality = $('optQuality').value;
       const shareAudio = $('optAudio').checked;
 
@@ -111,31 +153,56 @@
       else if (quality === '480') { width = 854; height = 480; fps = 30; }
 
       try {
-        statusTxt.textContent = 'Solicitando pantalla…';
+        if (source === 'screen') {
+          statusTxt.textContent = 'Solicitando pantalla…';
 
-        // Captura de pantalla nativa
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-          throw new Error('Este navegador móvil no soporta captura de pantalla directa.');
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            throw new Error(isIOS
+              ? 'Apple iOS no permite captura de pantalla desde páginas web. Selecciona "Cámara Trasera" o transmite desde Android / PC.'
+              : 'Este navegador móvil no soporta captura de pantalla directa.');
+          }
+
+          try {
+            localStream = await navigator.mediaDevices.getDisplayMedia({
+              video: {
+                width: { ideal: width },
+                height: { ideal: height },
+                frameRate: { ideal: fps, max: fps }
+              },
+              audio: shareAudio ? { echoCancellation: false, noiseSuppression: false } : false
+            });
+          } catch (e1) {
+            console.warn('Reintentando con constraints simples de pantalla:', e1);
+            localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          }
+
+        } else {
+          // MODO CÁMARA (100% COMPATIBLE CON IPHONE iOS Y ANDROID)
+          statusTxt.textContent = 'Iniciando cámara…';
+          const facing = source === 'camera-front' ? 'user' : { ideal: 'environment' };
+
+          localStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: facing,
+              width: { ideal: width },
+              height: { ideal: height },
+              frameRate: { ideal: fps, max: fps }
+            },
+            audio: shareAudio
+          });
         }
-
-        localStream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: width },
-            height: { ideal: height },
-            frameRate: { ideal: fps, max: fps },
-            cursor: "always"
-          },
-          audio: shareAudio ? { echoCancellation: false, noiseSuppression: false } : false
-        });
 
         // Vista previa local
         senderPreview.srcObject = localStream;
         senderPreview.hidden = false;
 
-        // Detectar si el usuario detiene la transmisión desde la barra del sistema
-        localStream.getVideoTracks()[0].onended = () => {
-          stopBroadcasting();
-        };
+        // Si el usuario detiene la captura desde la barra del sistema
+        const track = localStream.getVideoTracks()[0];
+        if (track) {
+          track.onended = () => {
+            stopBroadcasting();
+          };
+        }
 
         statusTxt.textContent = 'Conectando con Tesla…';
         const targetPeerId = 'velox-' + targetCode.toLowerCase();
@@ -156,15 +223,15 @@
 
         broadcastStatus.hidden = false;
         btnStart.classList.add('stopping');
-        btnStart.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> Detener Transmisión`;
+        btnStart.innerHTML = `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg> <span id="btnStartTxt">Detener Transmisión</span>`;
         statusDot.className = 'dot live';
         statusTxt.textContent = 'Transmitiendo en vivo';
-        toast('Transmitiendo pantalla al Tesla');
+        toast(source === 'screen' ? 'Transmitiendo pantalla al Tesla' : 'Transmitiendo cámara al Tesla');
 
       } catch (err) {
-        console.error('Error al capturar pantalla:', err);
+        console.error('Error al capturar fuente:', err);
         statusTxt.textContent = 'Transmisión cancelada';
-        toast('No se inició la transmisión: ' + (err.message || 'Permiso denegado'));
+        toast((err.message || 'Permiso denegado'), 5000);
         stopBroadcasting();
       }
     };
@@ -185,7 +252,9 @@
         senderPreview.srcObject = null;
       }
       btnStart.classList.remove('stopping');
-      btnStart.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg> Iniciar Transmisión de Pantalla`;
+      const src = optSource ? optSource.value : 'screen';
+      const label = src === 'screen' ? 'Iniciar Transmisión de Pantalla' : 'Iniciar Transmisión de Cámara';
+      btnStart.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/></svg> <span id="btnStartTxt">${label}</span>`;
       statusDot.className = 'dot ok';
       statusTxt.textContent = 'Conexión lista';
     }

@@ -491,6 +491,38 @@ video#teslaVideo {
   margin-top: 6px;
 }
 
+.ios-alert-card {
+  margin: 16px 0 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(245, 158, 11, 0.09);
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.45;
+  color: #fef3c7;
+}
+.ios-alert-hdr {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 800;
+  color: #f59e0b;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.ios-alert-hdr svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.ios-alert-card p {
+  font-size: 12.5px;
+  color: rgba(254, 243, 199, 0.9);
+  margin: 0;
+  line-height: 1.45;
+}
+
 .opt-box {
   margin: 20px 0;
   display: flex;

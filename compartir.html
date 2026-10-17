@@ -145,10 +145,27 @@
     <div class="sender-view" id="senderView" hidden>
       <div class="sender-card">
         <div class="sender-target" id="targetCodeBadge">Tesla: TSLA-....</div>
-        <h2>Compartir con Tesla</h2>
-        <p>Tu pantalla completa se transmitirá en vivo hacia la consola de tu auto.</p>
+        <h2 id="senderTitle">Compartir con Tesla</h2>
+        <p id="senderSubtitle">Transmite en tiempo real hacia la consola de tu auto.</p>
+
+        <div class="ios-alert-card" id="iosAlertCard" hidden>
+          <div class="ios-alert-hdr">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span>Aviso para iPhone (iOS)</span>
+          </div>
+          <p>Apple no permite que ningún navegador web grabe otras apps en iOS. Para vincular con el auto, transmite tu <b>Cámara en vivo (Dashcam/Espejo)</b>. Para pantalla completa en iOS se requiere una app de App Store.</p>
+        </div>
 
         <div class="opt-box">
+          <div class="opt-row">
+            <span>Fuente a Transmitir</span>
+            <select id="optSource">
+              <option value="screen">Pantalla Completa (Android / PC)</option>
+              <option value="camera-back">Cámara Trasera (Compatible iPhone)</option>
+              <option value="camera-front">Cámara Frontal (Compatible iPhone)</option>
+            </select>
+          </div>
+
           <div class="opt-row">
             <span>Calidad de Video</span>
             <select id="optQuality">
@@ -172,7 +189,7 @@
             <circle cx="12" cy="12" r="10"/>
             <polygon points="10 8 16 12 10 16 10 8" fill="currentColor"/>
           </svg>
-          <span>Iniciar Transmisión</span>
+          <span id="btnStartTxt">Iniciar Transmisión</span>
         </button>
 
         <div id="broadcastStatus" style="margin-top: 14px; font-weight: 700; color: #ff6b6b;" hidden>
