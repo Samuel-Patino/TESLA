@@ -307,7 +307,7 @@ function speak(text, priority = false, isManeuver = false, clipKey = null) {
     else if (t.includes('semáforo') || t.includes('semaforo')) matchedKey = 'redlight';
     else if (t.includes('policía') || t.includes('policia')) matchedKey = 'police';
     else if (t.includes('peligro')) matchedKey = 'hazard';
-    else if (t.includes('reduce') || t.includes('exceso')) matchedKey = 'overspeed';
+    else if (t.includes('reduce') || t.includes('disminuy') || t.includes('exceso')) matchedKey = 'overspeed';
     else if (t.includes('bienvenido')) matchedKey = 'welcome';
     else if (t.includes('recalculando')) matchedKey = 'rerouting';
     else if (t.includes('ruta cambiada') || t.includes('alternativa')) matchedKey = 'route_changed';
@@ -479,7 +479,10 @@ let showLiveTraffic = true;
 const incidentLayer = L.layerGroup().addTo(map);
 
 function updateTrafficLayer() {
-  if (showLiveTraffic) {
+  const isNav = !!(nav && nav.active);
+  const shouldShow = showLiveTraffic && !isNav;
+
+  if (shouldShow) {
     if (!trafficTileLayer) {
       trafficTileLayer = L.tileLayer(
         `https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${TOMTOM_KEY}`,
@@ -502,7 +505,7 @@ function updateTrafficLayer() {
 }
 
 async function loadLiveTrafficIncidents() {
-  if (!showLiveTraffic) return;
+  if (!showLiveTraffic || (nav && nav.active)) return;
   const c = pos || centerPos();
   const dLat = 0.12, dLon = 0.12;
   const minLat = c.lat - dLat, maxLat = c.lat + dLat;
@@ -980,7 +983,13 @@ function updateSpeedUI() {
     bar.style.strokeDashoffset = 377 * (1 - pct);
   }
 
-  setOverspeed(!!(lim && s > lim + prefs.tolerance));
+  // Alerta de exceso de velocidad:
+  // Solo se activa cuando se esté por encima del límite a 300 metros o menos de una próxima cámara
+  const hasCamNear = !!(activeAlert && activeAlert.d <= 300);
+  const camLim = activeAlert ? (activeAlert.cam.maxspeed || lim) : null;
+  const isOverNearCam = hasCamNear && camLim && (s > camLim + prefs.tolerance);
+
+  setOverspeed(!!isOverNearCam);
 }
 function setOverspeed(v) {
   if (v === overspeed) return;
@@ -988,7 +997,10 @@ function setOverspeed(v) {
   document.body.classList.toggle('overspeed', v);
   if (v) {
     beep([1320, 1320, 1320], 0.09, 0.06, 'square');
-    if (Date.now() - lastOverVoice > 20000) { lastOverVoice = Date.now(); speak('Reduce la velocidad', true, false, 'overspeed'); }
+    if (Date.now() - lastOverVoice > 15000) {
+      lastOverVoice = Date.now();
+      speak('Disminuya la velocidad', true, false, 'overspeed');
+    }
   }
   renderAlert();
 }
@@ -1133,7 +1145,7 @@ function renderAlert() {
 }
 /* Pitido repetido si vas con exceso cerca de un radar */
 setInterval(() => {
-  if (overspeed && activeAlert && activeAlert.d < 400) beep([1500], 0.08, 0, 'square');
+  if (overspeed && activeAlert && activeAlert.d <= 300) beep([1500], 0.08, 0, 'square');
 }, 1800);
 
 /* ---------------------------------------------------------------------
@@ -1731,6 +1743,7 @@ function startNav() {
   showingAlternatives = false;
   drawAllRoutes();
   nav.active = true;
+  updateTrafficLayer();
   if (nav.coords && nav.coords.length >= 2) {
     const initHdg = bearing(nav.coords[0], nav.coords[1]);
     if (pos) {
@@ -1760,6 +1773,8 @@ function startNav() {
 function endNav() {
   showingAlternatives = false;
   nav = null;
+  updateTrafficLayer();
+  setOverspeed(false);
   routeLayer.clearLayers();
   $('preview').hidden = true;
   $('maneuver').hidden = true;
@@ -2261,7 +2276,11 @@ if ($('liveBtn')) {
     showLiveTraffic = !showLiveTraffic;
     $('liveBtn').classList.toggle('on', showLiveTraffic);
     updateTrafficLayer();
-    toast(showLiveTraffic ? 'Tráfico en tiempo real (TomTom / Waze Live) activado' : 'Tráfico en tiempo real desactivado');
+    if (nav && nav.active) {
+      toast(showLiveTraffic ? 'Tráfico en tiempo real activado (se mostrará al finalizar navegación)' : 'Tráfico en tiempo real desactivado');
+    } else {
+      toast(showLiveTraffic ? 'Tráfico en tiempo real (TomTom / Waze Live) activado' : 'Tráfico en tiempo real desactivado');
+    }
   };
 }
 
