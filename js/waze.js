@@ -420,6 +420,8 @@ const startCenter = prefs.lastPos || DEFAULT_CENTER;
 const map = L.map('map', { zoomControl: false, zoomSnap: 0.25, attributionControl: true })
   .setView([startCenter.lat, startCenter.lon], 15);
 map.attributionControl.setPrefix(false);
+map.createPane('trafficPane');
+map.getPane('trafficPane').style.zIndex = '350';
 
 let currentTileLayer = null;
 
@@ -432,22 +434,32 @@ function applyMapStyle() {
     maxNativeZoom: 19,
     maxZoom: 20,
     keepBuffer: 16,
-    updateWhenZooming: true,
-    subdomains: ['a', 'b', 'c'],
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    updateWhenZooming: true
   };
 
   if (style === 'sat') {
-    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', Object.assign({}, tileOpts, { maxNativeZoom: 18, attribution: '© Esri, Maxar' })).addTo(map);
+    currentTileLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', Object.assign({}, tileOpts, {
+      maxNativeZoom: 18,
+      attribution: '© Esri, Maxar'
+    })).addTo(map);
     mapEl.classList.remove('dark-tiles');
     document.body.classList.remove('light');
-  } else if (style === 'osm' || style === 'light') {
-    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
+  } else if (style === 'waze' || style === 'osm' || style === 'light') {
+    // Waze Día oficial: 100% idéntico al mapa Waze diurno (limpio, claro y sin filtros)
+    currentTileLayer = L.tileLayer('https://worldtiles{s}.waze.com/tiles/{z}/{x}/{y}.png', Object.assign({}, tileOpts, {
+      subdomains: ['1', '2', '3', '4'],
+      className: 'waze-tiles',
+      attribution: '© <a href="https://www.waze.com" target="_blank" rel="noopener">Waze</a>'
+    })).addTo(map);
     mapEl.classList.remove('dark-tiles');
     document.body.classList.add('light');
   } else {
-    // dark (predeterminado para Tesla Model Y): OpenStreetMap con filtro OLED Waze
-    currentTileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', tileOpts).addTo(map);
+    // Waze Noche (predeterminado para Tesla Model Y): Teselas oficiales Waze con filtro OLED
+    currentTileLayer = L.tileLayer('https://worldtiles{s}.waze.com/tiles/{z}/{x}/{y}.png', Object.assign({}, tileOpts, {
+      subdomains: ['1', '2', '3', '4'],
+      className: 'waze-tiles',
+      attribution: '© <a href="https://www.waze.com" target="_blank" rel="noopener">Waze</a>'
+    })).addTo(map);
     mapEl.classList.add('dark-tiles');
     document.body.classList.remove('light');
   }
@@ -475,7 +487,7 @@ function updateTrafficLayer() {
           maxNativeZoom: 18,
           maxZoom: 20,
           opacity: 0.88,
-          zIndex: 12,
+          pane: 'trafficPane',
           attribution: 'Tráfico © TomTom'
         }
       );

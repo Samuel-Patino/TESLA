@@ -25,11 +25,13 @@ input{font:inherit;color:inherit}
 #mapViewport{position:fixed;inset:0;z-index:0;overflow:hidden;background:#121824;perspective:850px;perspective-origin:50% 76%}
 #map{position:absolute;top:-68%;left:-90%;width:280%;height:280%;background:#121824;transform-origin:50% 50%;will-change:transform;transition:transform .22s ease-out}
 .leaflet-container{background:#121824;font-family:inherit}
-body.light .leaflet-container{background:#e9eef3}
+body.light .leaflet-container,
+body.light #mapViewport,
+body.light #map{background:#f3f3f0}
 
-/* Filtro Oscuro OLED para OpenStreetMap (100% libre de marcas de agua) */
-#map.dark-tiles .leaflet-tile-pane {
-  filter: brightness(0.62) invert(1) contrast(2.4) hue-rotate(200deg) saturate(0.32) brightness(0.74);
+/* Filtro Oscuro OLED para teselas oficiales de Waze */
+#map.dark-tiles .waze-tiles {
+  filter: invert(0.92) hue-rotate(185deg) brightness(0.85) contrast(1.22) saturate(0.9);
 }
 
 .leaflet-control-attribution{background:rgba(10,14,22,.65)!important;color:rgba(255,255,255,.6)!important;font-size:10px!important;border-radius:8px 0 0 0}
