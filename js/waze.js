@@ -477,6 +477,9 @@ const TOMTOM_KEY = 'K56f5YDun1bGXPwi2hDFenx8gKcJAD8M';
 let trafficTileLayer = null;
 let showLiveTraffic = true;
 const incidentLayer = L.layerGroup().addTo(map);
+let nav = null;
+let pos = null, prevFix = null, lastFixT = 0, gpsErr = null, started = false;
+const centerPos = () => { const c = map.getCenter(); return { lat: c.lat, lon: c.lng }; };
 
 function updateTrafficLayer() {
   const isNav = !!(nav && nav.active);
@@ -677,12 +680,10 @@ map.on('moveend', () => {
   renderCams();
   if (map.getZoom() >= 11) ensureCamerasAround(centerPos());
 });
-const centerPos = () => { const c = map.getCenter(); return { lat: c.lat, lon: c.lng }; };
 
 /* ---------------------------------------------------------------------
    GPS
    --------------------------------------------------------------------- */
-let pos = null, prevFix = null, lastFixT = 0, gpsErr = null, started = false;
 function startGPS() {
   if (!navigator.geolocation) { gpsErr = 'Navegador sin geolocalización'; updateStatus(); return; }
   navigator.geolocation.watchPosition(onFix, onGpsErr, { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 });
@@ -1151,7 +1152,7 @@ setInterval(() => {
 /* ---------------------------------------------------------------------
    Navegación (OSRM)
    --------------------------------------------------------------------- */
-let nav = null;
+nav = null;
 const MOD_ES = {
   left: 'a la izquierda', right: 'a la derecha',
   'slight left': 'levemente a la izquierda', 'slight right': 'levemente a la derecha',
@@ -2356,29 +2357,39 @@ document.addEventListener('visibilitychange', () => {
 });
 
 $('startBtn').onclick = async () => {
-  initAudio();
-  getAudioContext();
-  updateSoundUI();
-  if (ac && ac.state === 'suspended') { try { await ac.resume(); } catch (e) { /* ignorar */ } }
-  if (window.speechSynthesis) {
-    try {
-      window.speechSynthesis.resume();
-      const p = new SpeechSynthesisUtterance(' ');
-      p.volume = 0.01;
-      window.speechSynthesis.speak(p);
-    } catch (e) {}
-  }
-  playCameraChime(500);
-  if (prefs.soundMode !== 'alerts') {
-    speak('Bienvenido. Alertas de velocidad activadas.', true, false, 'welcome');
-  }
   started = true;
   $('start').hidden = true;
   setTimeout(() => { map.invalidateSize(); }, 80);
-  startGPS();
-  requestWake();
-  ensureCamerasAround(centerPos());
-  updateStatus(); updateCamInfo(); updateSpeedUI();
+
+  try {
+    initAudio();
+    getAudioContext();
+    updateSoundUI();
+    if (ac && ac.state === 'suspended') { try { await ac.resume(); } catch (e) { /* ignorar */ } }
+    if (window.speechSynthesis) {
+      try {
+        window.speechSynthesis.resume();
+        const p = new SpeechSynthesisUtterance(' ');
+        p.volume = 0.01;
+        window.speechSynthesis.speak(p);
+      } catch (e) {}
+    }
+    playCameraChime(500);
+    if (prefs.soundMode !== 'alerts') {
+      speak('Bienvenido. Alertas de velocidad activadas.', true, false, 'welcome');
+    }
+  } catch (e) {
+    console.warn('Audio init warning:', e);
+  }
+
+  try {
+    startGPS();
+    requestWake();
+    ensureCamerasAround(centerPos());
+    updateStatus(); updateCamInfo(); updateSpeedUI();
+  } catch (e) {
+    console.warn('GPS init warning:', e);
+  }
 };
 
 updateSoundUI();
