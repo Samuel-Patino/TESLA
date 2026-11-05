@@ -143,6 +143,58 @@ h1 {
 .btn-marca.ok[aria-pressed="true"] { border-color: var(--ok); background: var(--ok); color: #04121b; }
 .btn-marca.falla[aria-pressed="true"] { border-color: var(--falla); background: var(--falla); color: #1d0505; }
 
+/* Cabecera de la fila y de la biblioteca */
+.fila-cabecera { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: -8px; }
+.fila-cabecera h2 { font-size: 14px; font-weight: 700; letter-spacing: .08em; color: var(--mut); }
+.btn-biblioteca {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid var(--linea);
+  border-radius: 999px;
+  background: rgba(5, 7, 13, .45);
+  color: var(--txt);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-biblioteca svg { width: 18px; height: 18px; transition: transform .35s; }
+
+/* Biblioteca completa: la fila se convierte en cuadrícula */
+main { position: relative; }
+.destacado { transition: opacity .28s, transform .35s cubic-bezier(.2, .8, .2, 1), visibility .28s; }
+.arte { transition: opacity .35s; }
+
+body.modo-biblioteca .arte { opacity: .32; }
+body.modo-biblioteca main { justify-content: flex-start; padding-top: clamp(10px, 2vh, 20px); gap: clamp(12px, 2vh, 20px); }
+body.modo-biblioteca .destacado {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-40px);
+}
+body.modo-biblioteca .fila-cabecera { margin-bottom: 0; }
+body.modo-biblioteca .fila-cabecera h2 { font-size: clamp(22px, 2.6vw, 34px); font-weight: 900; letter-spacing: -.01em; color: var(--txt); }
+body.modo-biblioteca .btn-biblioteca svg { transform: rotate(180deg); }
+body.modo-biblioteca .fila {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(clamp(140px, 19vw, 280px), 1fr));
+  align-content: start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scroll-snap-type: none;
+}
+body.modo-biblioteca .portada { flex: none; width: 100%; height: clamp(110px, 13vw, 170px); aspect-ratio: auto; opacity: .92; }
+body.modo-biblioteca .portada[aria-current="true"] { opacity: 1; }
+
 /* Fila de portadas */
 .fila {
   display: flex;
@@ -210,4 +262,11 @@ a:focus-visible, button:focus-visible { outline: 3px solid #fff; outline-offset:
   .mando span:last-child, .biblioteca { display: none; }
   .marcar { width: 100%; margin-left: 0; }
   .btn-abrir, .btn-secundario, .btn-marca { flex: 1 1 auto; }
+  body.modo-biblioteca { overflow: hidden; }
+  body.modo-biblioteca .app { height: 100vh; height: 100dvh; }
+  body.modo-biblioteca main { padding-top: 12px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .destacado, .arte, .btn-biblioteca svg { transition: none; }
 }

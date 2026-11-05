@@ -89,7 +89,17 @@
     }
   }
 
-  const api = Object.freeze({ JUEGOS, urlValida });
+  // Índice al moverse una fila en la biblioteca; null si ya no hay fila en esa dirección.
+  function indiceVertical(indice, columnas, total, paso) {
+    const destino = indice + paso * columnas;
+    if (destino < 0) return null;
+    if (destino < total) return destino;
+    const filaActual = Math.floor(indice / columnas);
+    const ultimaFila = Math.floor((total - 1) / columnas);
+    return paso > 0 && filaActual < ultimaFila ? total - 1 : null;
+  }
+
+  const api = Object.freeze({ JUEGOS, urlValida, indiceVertical });
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else raiz.VeloxJuegos = api;
 })(typeof window !== 'undefined' ? window : globalThis);
