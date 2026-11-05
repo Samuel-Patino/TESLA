@@ -74,7 +74,8 @@ html, body {
 .app-container {
   position: relative;
   z-index: 1;
-  height: 100%;
+  height: 100vh;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
 }
@@ -84,7 +85,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 28px;
+  padding: clamp(8px, 1.6vh, 16px) clamp(14px, 2.4vw, 28px);
   background: rgba(5, 7, 13, 0.65);
   backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--line);
@@ -185,6 +186,9 @@ header {
 .btn-icon:active { transform: scale(0.92); }
 .btn-icon svg { width: 20px; height: 20px; }
 
+/* En vivo el video usa toda el área: el encabezado le quitaría altura */
+body.en-vivo header { display: none; }
+
 /* Main Stage */
 main {
   flex: 1;
@@ -200,12 +204,14 @@ main {
    MODO RECEPTOR (TESLA) - PANTALLA DE EMPAREJAMIENTO
    ---------------------------------------------------- */
 .pairing-view {
+  --qr: clamp(130px, 34vh, 240px);
   width: 100%;
-  max-width: 960px;
-  padding: 24px;
+  max-width: 1200px;
+  margin: auto; /* centra sin recortar la parte superior si falta altura */
+  padding: clamp(10px, 2.4vh, 24px) clamp(14px, 2.4vw, 32px);
   display: grid;
-  grid-template-columns: 360px 1fr;
-  gap: 36px;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: clamp(18px, 3vw, 40px);
   align-items: center;
   animation: fadeIn .3s ease-out;
 }
@@ -216,7 +222,7 @@ main {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 28px 24px;
+  padding: clamp(12px, 2.2vh, 28px) clamp(14px, 2vw, 24px);
   border-radius: 28px;
   background: var(--panel-2);
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -225,21 +231,20 @@ main {
 }
 .qr-wrapper {
   background: #ffffff;
-  padding: 16px;
+  padding: clamp(8px, 1.4vh, 16px);
   border-radius: 20px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-  margin-bottom: 20px;
+  margin-bottom: clamp(8px, 1.6vh, 20px);
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 252px;
-  min-height: 252px;
   position: relative;
 }
 .qr-wrapper canvas,
 .qr-wrapper img,
 .qr-wrapper svg {
   display: block;
+  width: var(--qr);
   max-width: 100%;
   height: auto;
   border-radius: 10px;
@@ -252,11 +257,11 @@ main {
   letter-spacing: 0.1em;
 }
 .room-code-val {
-  font-size: 32px;
+  font-size: clamp(20px, 4vh, 32px);
   font-weight: 900;
   letter-spacing: 0.18em;
   color: #fff;
-  margin: 4px 0 14px;
+  margin: 2px 0 clamp(6px, 1.4vh, 14px);
   font-variant-numeric: tabular-nums;
   background: linear-gradient(135deg, #fff, #c084fc);
   -webkit-background-clip: text;
@@ -284,10 +289,10 @@ main {
 .info-card {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: clamp(8px, 1.8vh, 20px);
 }
 .info-card h1 {
-  font-size: clamp(28px, 3.2vw, 42px);
+  font-size: clamp(22px, min(3.2vw, 5.4vh), 42px);
   font-weight: 900;
   line-height: 1.15;
   letter-spacing: -0.02em;
@@ -300,13 +305,13 @@ main {
 .steps-list {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: clamp(6px, 1.2vh, 14px);
 }
 .step-item {
   display: flex;
   align-items: flex-start;
   gap: 16px;
-  padding: 14px 18px;
+  padding: clamp(7px, 1.2vh, 14px) 18px;
   border-radius: 18px;
   background: rgba(255, 255, 255, 0.035);
   border: 1px solid var(--line);
@@ -339,7 +344,7 @@ main {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 18px;
+  padding: clamp(7px, 1.2vh, 12px) 18px;
   border-radius: 16px;
   background: rgba(168, 85, 247, 0.1);
   border: 1px solid rgba(168, 85, 247, 0.3);
@@ -373,9 +378,9 @@ main {
   justify-content: center;
   overflow: hidden;
 }
+/* compartir.js intercambia ancho y alto al rotar para que el video quepa */
 video#teslaVideo {
-  max-width: 100%;
-  max-height: 100%;
+  flex-shrink: 0;
   width: 100%;
   height: 100%;
   object-fit: contain;
@@ -389,8 +394,12 @@ video#teslaVideo {
   bottom: 24px;
   left: 50%;
   transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 24px);
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: 10px;
   padding: 10px 18px;
   border-radius: 22px;
@@ -622,10 +631,34 @@ input:checked + .slider:before { transform: translateX(20px); }
   animation: fadeIn .2s ease-out;
 }
 
+/* Medidas reales del área del navegador: se activa con ?medidas=1 */
+.medidas {
+  position: fixed;
+  right: 12px;
+  bottom: 12px;
+  z-index: 100;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Área baja: el navegador del Tesla no usa toda la altura física */
+@media (max-height: 680px) {
+  .step-text p { display: none; }
+  .step-text b { margin-bottom: 0; }
+}
+@media (max-height: 520px) {
+  .hotspot-tip { display: none; }
+}
+
 @media (max-width: 820px) {
   body { overflow: auto; }
   .pairing-view { grid-template-columns: 1fr; gap: 24px; padding: 16px; }
   .qr-card { padding: 20px; }
   .info-card h1 { font-size: 26px; }
-  .stream-overlay { bottom: 12px; width: calc(100vw - 24px); justify-content: center; flex-wrap: wrap; }
+  .stream-overlay { bottom: 12px; }
 }

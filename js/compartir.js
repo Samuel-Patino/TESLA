@@ -385,6 +385,9 @@
       call.on('stream', remoteStream => {
         if (pairingView) pairingView.hidden = true;
         if (streamContainer) streamContainer.hidden = false;
+        document.body.classList.add('en-vivo');
+        ajustarVideo();
+        resetIdle();
         if (teslaVideo) {
           teslaVideo.srcObject = remoteStream;
           teslaVideo.play().catch(e => console.warn('Autoplay prevenido:', e));
@@ -436,6 +439,7 @@
     }
     streamContainer.hidden = true;
     pairingView.hidden = false;
+    document.body.classList.remove('en-vivo');
     statusDot.className = 'dot ok';
     statusTxt.textContent = 'Esperando conexión';
     toast('Transmisión finalizada');
@@ -471,9 +475,22 @@
 
   // 3. Rotación (0°, 90°, 180°, 270°)
   let rotDeg = 0;
+
+  // De lado, el video necesita el ancho y el alto invertidos para caber.
+  function ajustarVideo() {
+    const area = teslaVideo.parentElement;
+    const deLado = rotDeg % 180 !== 0;
+    teslaVideo.style.width = `${deLado ? area.clientHeight : area.clientWidth}px`;
+    teslaVideo.style.height = `${deLado ? area.clientWidth : area.clientHeight}px`;
+  }
+
+  if (window.ResizeObserver) new ResizeObserver(ajustarVideo).observe(teslaVideo.parentElement);
+  else window.addEventListener('resize', ajustarVideo);
+
   $('ctrlRotate').onclick = () => {
     rotDeg = (rotDeg + 90) % 360;
     teslaVideo.style.transform = `rotate(${rotDeg}deg)`;
+    ajustarVideo();
     $('ctrlRotateTxt').textContent = `${rotDeg}°`;
     toast(`Rotación: ${rotDeg}°`);
   };
@@ -514,5 +531,17 @@
   window.addEventListener('pointermove', resetIdle, { passive: true });
   window.addEventListener('touchstart', resetIdle, { passive: true });
   window.addEventListener('click', resetIdle, { passive: true });
+
+  // Con ?medidas=1 muestra el área real que el Tesla le da a la página.
+  if (urlParams.get('medidas') === '1') {
+    const medidas = document.createElement('div');
+    medidas.className = 'medidas';
+    document.body.appendChild(medidas);
+    const pintarMedidas = () => {
+      medidas.textContent = `Área ${window.innerWidth} × ${window.innerHeight} · Pantalla ${screen.width} × ${screen.height} · Escala ${window.devicePixelRatio}`;
+    };
+    pintarMedidas();
+    window.addEventListener('resize', pintarMedidas);
+  }
 
 })();
