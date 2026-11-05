@@ -2,10 +2,13 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { JUEGOS, urlValida, indiceVertical } = require('../js/juegos-data.js');
+const { JUEGOS, DESCARTADOS, urlValida, indiceVertical, insigniasDe } = require('../js/juegos-data.js');
 
-test('el catálogo trae los 9 enlaces entregados', () => {
-  assert.equal(JUEGOS.length, 9);
+const buscar = id => JUEGOS.find(juego => juego.id === id);
+const textosDe = id => insigniasDe(buscar(id)).map(insignia => insignia.texto);
+
+test('el catálogo trae los 14 enlaces activos', () => {
+  assert.equal(JUEGOS.length, 14);
 });
 
 test('cada entrada tiene los campos que necesita el menú', () => {
@@ -34,9 +37,37 @@ test('urlValida rechaza esquemas peligrosos o texto suelto', () => {
   assert.equal(urlValida('no es una url'), false);
 });
 
-test('el enlace de Buckshot Roulette no lleva la /o que da error 404', () => {
-  const buckshot = JUEGOS.find(juego => juego.id === 'buckshot-roulette');
-  assert.equal(buckshot.url, 'https://genizymath.github.io/games/buckshot-roulette/');
+test('ningún enlace descartado sigue en el catálogo', () => {
+  const activos = new Set(JUEGOS.map(juego => juego.url));
+  for (const descartado of DESCARTADOS) {
+    assert.equal(activos.has(descartado.url), false, `${descartado.titulo} sigue activo`);
+  }
+});
+
+test('el registro guarda los enlaces que ya fallaron', () => {
+  const urls = DESCARTADOS.map(descartado => descartado.url);
+  assert.ok(urls.includes('https://csjs.live/'));
+  assert.ok(urls.includes('https://genizymath.github.io/games/buckshot-roulette/'));
+  for (const descartado of DESCARTADOS) {
+    assert.ok(descartado.resultado && descartado.fecha, `${descartado.titulo}: registro incompleto`);
+  }
+});
+
+test('Clover Pit queda verificado y sin mando', () => {
+  assert.deepEqual(textosDe('clover-pit'), ['Verificado', 'Sin mando']);
+});
+
+test('Brotato queda verificado, con mando y cooperativo', () => {
+  assert.deepEqual(textosDe('brotato'), ['Verificado', 'Con mando', 'Coop 2 jugadores']);
+});
+
+test('un juego sin probar no muestra insignias', () => {
+  assert.deepEqual(textosDe('fifa-14'), []);
+});
+
+test('Halo 2 y Halo Online siguen sin verificar hasta aclarar cuál funcionó', () => {
+  assert.deepEqual(textosDe('halo-2'), []);
+  assert.deepEqual(textosDe('halo-online'), []);
 });
 
 test('indiceVertical baja una fila en la biblioteca', () => {

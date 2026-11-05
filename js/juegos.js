@@ -2,10 +2,18 @@
 
 (function () {
   const $ = id => document.getElementById(id);
-  const { JUEGOS, indiceVertical } = window.VeloxJuegos;
+  const { JUEGOS, indiceVertical, insigniasDe } = window.VeloxJuegos;
 
   const CLAVE_PRUEBAS = 'velox_juegos_pruebas_v1';
   const TEXTO_PRUEBA = { ok: 'Funciona', falla: 'Falla' };
+  const COOKIE_MAX_SEGUNDOS = 60 * 60 * 24 * 365;
+  const SVG_MANDO = '<path d="M7.5 7h9a5.5 5.5 0 0 1 5.3 7l-.7 2.4a2.6 2.6 0 0 1-4.4 1.1L14.4 15H9.6l-2.3 2.5a2.6 2.6 0 0 1-4.4-1.1L2.2 14a5.5 5.5 0 0 1 5.3-7z"/><path d="M8 10v3M6.5 11.5h3M15.5 12h.01M17.5 10.5h.01"/>';
+  const TRAZOS_INSIGNIA = {
+    verificado: '<path d="M5 12.5l4.5 4.5L19 7.5"/>',
+    mando: SVG_MANDO,
+    'sin-mando': `${SVG_MANDO}<path d="M3 3l18 18"/>`,
+    coop: '<circle cx="9" cy="8" r="3.2"/><path d="M3 20c.5-4 2.8-6 6-6s5.5 2 6 6"/><path d="M15.5 5.2a3.2 3.2 0 0 1 0 5.8M17.5 14.4c2 .8 3.1 2.7 3.5 5.6"/>'
+  };
   const BOTON_A = 0;
   const BOTON_ARRIBA = 12;
   const BOTON_ABAJO = 13;
@@ -17,9 +25,15 @@
   const PAUSA_RUEDA_MS = 650;
   const DESLIZAMIENTO_MIN = 50;
 
-  function cargarPruebas() {
+  function leerCookie() {
+    const inicio = `${CLAVE_PRUEBAS}=`;
+    const cookie = document.cookie.split('; ').find(parte => parte.startsWith(inicio));
+    return cookie ? decodeURIComponent(cookie.slice(inicio.length)) : null;
+  }
+
+  function leerPruebas(leer) {
     try {
-      const guardado = JSON.parse(localStorage.getItem(CLAVE_PRUEBAS));
+      const guardado = JSON.parse(leer());
       if (!guardado || typeof guardado !== 'object') return {};
       return Object.fromEntries(Object.entries(guardado).filter(([, resultado]) => TEXTO_PRUEBA[resultado]));
     } catch (e) {
@@ -28,11 +42,34 @@
     }
   }
 
-  function guardarPruebas(pruebas) {
+  // La cookie es un respaldo por si el navegador del carro vacía localStorage.
+  function cargarPruebas() {
+    return { ...leerPruebas(leerCookie), ...leerPruebas(() => localStorage.getItem(CLAVE_PRUEBAS)) };
+  }
+
+  function guardarEnLocal(texto) {
     try {
-      localStorage.setItem(CLAVE_PRUEBAS, JSON.stringify(pruebas));
+      localStorage.setItem(CLAVE_PRUEBAS, texto);
+      return localStorage.getItem(CLAVE_PRUEBAS) === texto;
     } catch (e) {
-      console.warn('No se pudieron guardar las pruebas:', e);
+      console.warn('localStorage no disponible:', e);
+      return false;
+    }
+  }
+
+  function guardarEnCookie(texto) {
+    const seguro = window.location.protocol === 'https:' ? ';Secure' : '';
+    document.cookie = `${CLAVE_PRUEBAS}=${encodeURIComponent(texto)};max-age=${COOKIE_MAX_SEGUNDOS};SameSite=Lax${seguro}`;
+    return leerCookie() === texto;
+  }
+
+  function guardarPruebas(pruebas) {
+    const texto = JSON.stringify(pruebas);
+    const enLocal = guardarEnLocal(texto);
+    const enCookie = guardarEnCookie(texto);
+    $('avisoGuardado').hidden = enLocal || enCookie;
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist().catch(error => console.warn('Almacenamiento persistente no disponible:', error));
     }
   }
 
@@ -45,11 +82,41 @@
     elemento.style.setProperty('--c2', juego.colores[1]);
   }
 
+  // Solo recibe trazos fijos de TRAZOS_INSIGNIA, nunca datos externos.
+  function crearIcono(tipo) {
+    const plantilla = document.createElement('template');
+    plantilla.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TRAZOS_INSIGNIA[tipo]}</svg>`;
+    return plantilla.content.firstChild;
+  }
+
+  function crearInsignias(juego) {
+    const contenedor = document.createElement('span');
+    contenedor.className = 'insignias';
+    insigniasDe(juego).forEach(({ tipo, texto }) => {
+      const insignia = document.createElement('span');
+      insignia.className = `insignia ${tipo}`;
+      insignia.title = texto;
+      insignia.setAttribute('aria-label', texto);
+      insignia.setAttribute('role', 'img');
+      insignia.append(crearIcono(tipo));
+      contenedor.append(insignia);
+    });
+    return contenedor;
+  }
+
+  function crearEtiquetaInsignia({ tipo, texto }) {
+    const etiqueta = document.createElement('span');
+    etiqueta.className = `etiqueta ${tipo}`;
+    etiqueta.append(crearIcono(tipo), texto);
+    return etiqueta;
+  }
+
   function crearPortada(juego, indice) {
     const boton = document.createElement('button');
     boton.className = 'portada';
     boton.type = 'button';
     boton.textContent = juego.titulo;
+    boton.append(crearInsignias(juego));
     aplicarColores(boton, juego);
     boton.addEventListener('click', () => {
       seleccionar(indice);
@@ -74,7 +141,7 @@
   function pintar() {
     const juego = juegoActual();
     const resultado = estado.pruebas[juego.id];
-    const probados = JUEGOS.filter(item => estado.pruebas[item.id]).length;
+    const probados = JUEGOS.filter(item => item.verificado || estado.pruebas[item.id]).length;
 
     aplicarColores(document.documentElement, juego);
     $('biblioteca').textContent = `Biblioteca ${JUEGOS.length} · ${probados} probados`;
@@ -85,8 +152,11 @@
     $('btnPestana').href = juego.url;
 
     const etiqueta = $('etiquetaPrueba');
-    etiqueta.textContent = resultado ? TEXTO_PRUEBA[resultado] : 'Sin probar';
+    etiqueta.textContent = resultado ? TEXTO_PRUEBA[resultado] : juego.pendiente || 'Sin probar';
     etiqueta.className = `etiqueta prueba ${resultado || ''}`.trim();
+    etiqueta.hidden = Boolean(juego.verificado);
+    $('insigniasTexto').replaceChildren(...insigniasDe(juego).map(crearEtiquetaInsignia));
+    $('marcar').hidden = Boolean(juego.verificado);
 
     $('btnFunciona').setAttribute('aria-pressed', String(resultado === 'ok'));
     $('btnFalla').setAttribute('aria-pressed', String(resultado === 'falla'));

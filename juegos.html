@@ -40,6 +40,7 @@
       <div class="etiquetas">
         <span class="etiqueta" id="categoria"></span>
         <span class="etiqueta prueba" id="etiquetaPrueba"></span>
+        <span class="insignias-texto" id="insigniasTexto"></span>
       </div>
       <h1 id="titulo"></h1>
       <p id="descripcion"></p>
@@ -52,9 +53,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
           <span>Nueva pestaña</span>
         </a>
-        <div class="marcar" role="group" aria-label="Resultado de la prueba en el Tesla">
+        <div class="marcar" id="marcar" role="group" aria-label="Resultado de la prueba en el Tesla">
           <button class="btn-marca ok" id="btnFunciona" aria-pressed="false">Funciona</button>
           <button class="btn-marca falla" id="btnFalla" aria-pressed="false">Falla</button>
+          <span class="aviso-guardado" id="avisoGuardado" role="alert" hidden>No se pudo guardar en este navegador</span>
         </div>
       </div>
     </section>
