@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Juegos - VELOX Drive</title>
+<meta name="theme-color" content="#05070d">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/juegos.css">
+</head>
+<body>
+
+<div class="arte" id="arte" aria-hidden="true"></div>
+
+<div class="app">
+  <header>
+    <div class="hdr-izq">
+      <a href="index.html" class="btn-volver" title="Volver al menú principal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <span>Menú</span>
+      </a>
+      <span class="biblioteca" id="biblioteca">Biblioteca</span>
+    </div>
+    <div class="hdr-der">
+      <div class="mando" id="mando" role="status">
+        <span class="punto" id="mandoPunto"></span>
+        <span id="mandoTxt">Mando: presiona un botón</span>
+      </div>
+      <span class="reloj" id="reloj">--:--</span>
+      <button class="btn-icono" id="btnPantalla" aria-label="Pantalla completa" title="Pantalla completa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="destacado" aria-live="polite">
+      <div class="etiquetas">
+        <span class="etiqueta" id="categoria"></span>
+        <span class="etiqueta prueba" id="etiquetaPrueba"></span>
+      </div>
+      <h1 id="titulo"></h1>
+      <p id="descripcion"></p>
+      <div class="acciones">
+        <a class="btn-abrir" id="btnAbrir" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>
+          <span>Abrir juego</span>
+        </a>
+        <a class="btn-secundario" id="btnPestana" target="_blank" rel="noopener noreferrer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+          <span>Nueva pestaña</span>
+        </a>
+        <div class="marcar" role="group" aria-label="Resultado de la prueba en el Tesla">
+          <button class="btn-marca ok" id="btnFunciona" aria-pressed="false">Funciona</button>
+          <button class="btn-marca falla" id="btnFalla" aria-pressed="false">Falla</button>
+        </div>
+      </div>
+    </section>
+
+    <nav class="fila" id="fila" aria-label="Juegos disponibles"></nav>
+  </main>
+</div>
+
+<script src="js/juegos-data.js"></script>
+<script src="js/juegos.js"></script>
+</body>
+</html>

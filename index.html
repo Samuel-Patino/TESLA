@@ -53,7 +53,7 @@
 
   /* Centro: Tarjetas Minimalistas */
   main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 0}
-  .modules{display:grid;grid-template-columns:repeat(4,1fr);gap:clamp(14px,1.8vw,28px);width:100%;max-width:1440px}
+  .modules{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(14px,1.8vw,28px);width:100%;max-width:1600px}
   
   .card{
     position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
@@ -75,6 +75,7 @@
   .waze .card-ico{background:linear-gradient(135deg,var(--w1),var(--w2));box-shadow:0 14px 34px rgba(51,204,255,.3)}
   .mirror .card-ico{background:linear-gradient(135deg,#a855f7,#6366f1);box-shadow:0 14px 34px rgba(168,85,247,.35)}
   .whatsapp .card-ico{background:linear-gradient(135deg,#25D366,#128C7E);box-shadow:0 14px 34px rgba(37,211,102,.35)}
+  .juegos .card-ico{background:linear-gradient(135deg,#f97316,#ef4444);box-shadow:0 14px 34px rgba(249,115,22,.35)}
   .card:hover .card-ico{transform:scale(1.06)}
   .card-ico svg{width:42px;height:42px}
 
@@ -84,7 +85,8 @@
   footer{display:flex;justify-content:center;align-items:center;font-size:12px;color:rgba(226,234,255,.25);letter-spacing:.1em;text-transform:uppercase}
 
   @media (max-width:1200px){
-    .modules{grid-template-columns:repeat(2,1fr)}
+    .modules{grid-template-columns:repeat(3,1fr)}
+    .card{min-height:clamp(200px,36vh,300px)}
   }
   @media (max-width:680px){
     body{overflow:auto}
@@ -151,6 +153,18 @@
         </div>
         <h2>WhatsApp</h2>
         <p>Mensajería Web</p>
+      </a>
+
+      <a class="card juegos" id="openJuegos" href="juegos.html">
+        <div class="card-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7.5 7h9a5.5 5.5 0 0 1 5.3 7l-.7 2.4a2.6 2.6 0 0 1-4.4 1.1L14.4 15H9.6l-2.3 2.5a2.6 2.6 0 0 1-4.4-1.1L2.2 14a5.5 5.5 0 0 1 5.3-7z"/>
+            <path d="M8 10v3M6.5 11.5h3"/>
+            <path d="M15.5 12h.01M17.5 10.5h.01"/>
+          </svg>
+        </div>
+        <h2>Juegos</h2>
+        <p>Biblioteca Web</p>
       </a>
     </nav>
   </main>
