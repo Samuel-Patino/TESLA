@@ -60,7 +60,7 @@
      MODO TRANSMISOR (CELULAR / MOBILE SENDER)
      ========================================================================= */
   if (role === 'sender') {
-    document.title = "Transmitir al Tesla - VELOX";
+    document.title = "Transmitir al Tesla · MENÚ";
     if (pairingView) pairingView.hidden = true;
     if (streamContainer) streamContainer.hidden = true;
     if (senderView) senderView.hidden = false;

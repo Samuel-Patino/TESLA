@@ -1,5 +1,5 @@
 /* =====================================================================
-   WAZE · VELOX Drive
+   WAZE · MENÚ
    Navegación giro a giro + alertas de cámaras de velocidad para el
    navegador del Tesla Model Y (Juniper).
 

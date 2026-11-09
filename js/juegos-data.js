@@ -1,7 +1,7 @@
 "use strict";
 
 /* =====================================================================
-   Catálogo de Juegos · VELOX Drive
+   Catálogo de Juegos · MENÚ
    Para agregar un juego, añade una entrada a JUEGOS.
 
    - `colores`: arte de la portada mientras no haya imagen propia.
