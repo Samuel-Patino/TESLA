@@ -1,0 +1,69 @@
+/* Tarjeta y teclado de contraseña de JARVIS */
+.jarvis .card-ico {
+  background: linear-gradient(135deg, #0ea5e9, #1e3a8a);
+  box-shadow: 0 14px 34px rgba(14, 165, 233, .35);
+}
+
+.jarvis-dialogo {
+  margin: auto;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 24px);
+  padding: clamp(18px, 3.2vh, 30px) 24px;
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 28px;
+  background: #0b111e;
+  color: #eef3ff;
+  text-align: center;
+  font-family: inherit;
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .7);
+}
+.jarvis-dialogo::backdrop { background: rgba(2, 4, 10, .78); backdrop-filter: blur(6px); }
+
+.jarvis-dialogo h2 { font-size: 26px; font-weight: 900; letter-spacing: .24em; }
+.jarvis-dialogo p { margin-top: 6px; font-size: 14px; color: rgba(226, 234, 255, .68); }
+
+.jarvis-puntos { display: flex; justify-content: center; gap: 14px; margin: clamp(14px, 2.6vh, 24px) 0 8px; }
+.jarvis-puntos span {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, .35);
+  border-radius: 50%;
+  transition: background .12s, border-color .12s;
+}
+.jarvis-puntos span.lleno { border-color: #38bdf8; background: #38bdf8; }
+.jarvis-dialogo.error .jarvis-puntos { animation: jarvisSacudir .4s; }
+.jarvis-dialogo.error .jarvis-puntos span { border-color: #ff6b6b; }
+
+.jarvis-mensaje { min-height: 20px; font-size: 13px; font-weight: 700; color: #ff6b6b; }
+
+.jarvis-teclado {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+.jarvis-teclado button {
+  height: clamp(48px, 8.4vh, 64px);
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, .06);
+  color: #eef3ff;
+  font: inherit;
+  font-size: 24px;
+  font-weight: 800;
+  cursor: pointer;
+}
+.jarvis-teclado button:active { transform: scale(.95); background: rgba(255, 255, 255, .14); }
+.jarvis-teclado button:disabled { opacity: .4; }
+.jarvis-teclado .accion { font-size: 15px; color: rgba(226, 234, 255, .75); }
+.jarvis-teclado button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+
+@keyframes jarvisSacudir {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-dialogo.error .jarvis-puntos { animation: none; }
+}

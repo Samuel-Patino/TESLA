@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/jarvis.css">
 <style>
   :root{
     --bg:#05070d;
@@ -53,7 +54,7 @@
 
   /* Centro: Tarjetas Minimalistas */
   main{flex:1;display:flex;align-items:center;justify-content:center;padding:20px 0}
-  .modules{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(14px,1.8vw,28px);width:100%;max-width:1600px}
+  .modules{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(14px,1.8vw,28px);width:100%;max-width:1440px}
   
   .card{
     position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;
@@ -84,10 +85,7 @@
 
   footer{display:flex;justify-content:center;align-items:center;font-size:12px;color:rgba(226,234,255,.25);letter-spacing:.1em;text-transform:uppercase}
 
-  @media (max-width:1200px){
-    .modules{grid-template-columns:repeat(3,1fr)}
-    .card{min-height:clamp(200px,36vh,300px)}
-  }
+  .modules .card{min-height:clamp(180px,34vh,300px)}
   @media (max-width:680px){
     body{overflow:auto}
     .modules{grid-template-columns:1fr}
@@ -166,6 +164,19 @@
         <h2>Juegos</h2>
         <p>Biblioteca Web</p>
       </a>
+
+      <a class="card jarvis" id="openJarvis" href="#" aria-haspopup="dialog">
+        <div class="card-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <circle cx="12" cy="12" r="5"/>
+            <circle cx="12" cy="12" r="1.6" fill="#fff"/>
+            <path d="M12 3v4M12 17v4M3 12h4M17 12h4"/>
+          </svg>
+        </div>
+        <h2>JARVIS</h2>
+        <p>Acceso con contraseña</p>
+      </a>
     </nav>
   </main>
 
@@ -198,5 +209,29 @@ $('fsBtn').onclick = () => {
   else (document.exitFullscreen || document.webkitExitFullscreen).call(document);
 };
 </script>
+<dialog class="jarvis-dialogo" id="jarvisDialogo" aria-labelledby="jarvisTitulo">
+  <h2 id="jarvisTitulo">JARVIS</h2>
+  <p>Ingresa la contraseña</p>
+  <div class="jarvis-puntos" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span><span></span></div>
+  <div class="jarvis-mensaje" id="jarvisMensaje" role="alert"></div>
+  <div class="jarvis-teclado">
+    <button type="button" data-digito="1">1</button>
+    <button type="button" data-digito="2">2</button>
+    <button type="button" data-digito="3">3</button>
+    <button type="button" data-digito="4">4</button>
+    <button type="button" data-digito="5">5</button>
+    <button type="button" data-digito="6">6</button>
+    <button type="button" data-digito="7">7</button>
+    <button type="button" data-digito="8">8</button>
+    <button type="button" data-digito="9">9</button>
+    <button type="button" class="accion" data-accion="cerrar">Cerrar</button>
+    <button type="button" data-digito="0">0</button>
+    <button type="button" class="accion" data-accion="borrar" aria-label="Borrar">Borrar</button>
+  </div>
+</dialog>
+
+<script src="js/jarvis-cifrado.js"></script>
+<script src="js/jarvis-candado.js"></script>
+<script src="js/jarvis.js"></script>
 </body>
 </html>
