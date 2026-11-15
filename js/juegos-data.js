@@ -37,48 +37,6 @@
       mando: false
     },
     {
-      id: 'clover-pit-2',
-      titulo: 'Clover Pit · Enlace 2',
-      categoria: 'Azar',
-      descripcion: 'Segundo enlace de Clover Pit, para comprobar si este sí detecta el mando.',
-      url: 'https://genizymath.github.io/games/clover-pit/',
-      colores: ['#14532d', '#4ade80'],
-      pendiente: 'Probar mando'
-    },
-    {
-      id: 'buckshot-roulette-2',
-      titulo: 'Buckshot Roulette · Enlace 2',
-      categoria: 'Suspenso',
-      descripcion: 'Segundo enlace de Buckshot Roulette, para comprobar si carga y detecta el mando.',
-      url: 'https://genizymath.github.io/iframe/205-fix2.html',
-      colores: ['#4c0d12', '#e23b3b'],
-      pendiente: 'Probar carga y mando'
-    },
-    {
-      id: 'fifa-14',
-      titulo: 'FIFA 14',
-      categoria: 'Deportes',
-      descripcion: 'Fútbol en el navegador, con partidos rápidos para jugar desde el carro.',
-      url: 'https://fifa14.online/',
-      colores: ['#0b5d3b', '#34d399']
-    },
-    {
-      id: 'gta-v',
-      titulo: 'GTA V',
-      categoria: 'Acción',
-      descripcion: 'Mundo abierto en versión web. Por su tamaño, la carga puede ser exigente.',
-      url: 'https://wasmarcade.com/gta-5',
-      colores: ['#3f3a1c', '#d6b24c']
-    },
-    {
-      id: 'black-ops-zombies',
-      titulo: 'Black Ops Zombies',
-      categoria: 'Disparos',
-      descripcion: 'Sobrevive a oleadas de zombis en modo individual con armas clásicas.',
-      url: 'https://vel.gg/bsz/kino?mode=single&guns=classic',
-      colores: ['#2b2b33', '#b91c1c']
-    },
-    {
       id: 'guitar-hero-3',
       titulo: 'Guitar Hero III',
       categoria: 'Ritmo',
@@ -93,7 +51,7 @@
       descripcion: 'Combate de ciencia ficción en primera persona, directo desde el navegador.',
       url: 'https://www.halo2browser.com/',
       colores: ['#0f6b4f', '#7bd64f'],
-      pendiente: 'Confirmar resultado'
+      verificado: true
     },
     {
       id: 'halo-online',
@@ -102,23 +60,7 @@
       descripcion: 'Versión web de Open Halo CE para jugar en primera persona.',
       url: 'https://openhaloce.com/',
       colores: ['#123d7a', '#39b6ff'],
-      pendiente: 'Confirmar resultado'
-    },
-    {
-      id: 'geometry-dash',
-      titulo: 'Geometry Dash',
-      categoria: 'Ritmo',
-      descripcion: 'Salta al ritmo de la música y esquiva obstáculos en niveles que no perdonan errores.',
-      url: 'https://genizymath.github.io/iframe/868-F3.html',
-      colores: ['#7c1fd1', '#16d6c4']
-    },
-    {
-      id: 'gn-math',
-      titulo: 'GN-Math',
-      categoria: 'Catálogo',
-      descripcion: 'La página principal con más juegos para explorar y probar en el Tesla.',
-      url: 'https://genizymath.github.io/index.html',
-      colores: ['#312e81', '#a78bfa']
+      verificado: true
     },
     {
       id: 'portmaster',
@@ -159,6 +101,48 @@
       url: 'https://genizymath.github.io/games/buckshot-roulette/',
       resultado: 'Falló en el Tesla: se reportó que no carga y también que no detecta el mando.',
       fecha: '2026-11-05'
+    },
+    {
+      titulo: 'Clover Pit · Enlace 2',
+      url: 'https://genizymath.github.io/games/clover-pit/',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'Buckshot Roulette · Enlace 2',
+      url: 'https://genizymath.github.io/iframe/205-fix2.html',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'FIFA 14',
+      url: 'https://fifa14.online/',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'GTA V',
+      url: 'https://wasmarcade.com/gta-5',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'Black Ops Zombies',
+      url: 'https://vel.gg/bsz/kino?mode=single&guns=classic',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'Geometry Dash',
+      url: 'https://genizymath.github.io/iframe/868-F3.html',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
+    },
+    {
+      titulo: 'GN-Math',
+      url: 'https://genizymath.github.io/index.html',
+      resultado: 'Marcado como Falla en el Tesla.',
+      fecha: '2026-11-15'
     }
   ].map(Object.freeze));
 

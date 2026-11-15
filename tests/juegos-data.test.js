@@ -7,8 +7,8 @@ const { JUEGOS, DESCARTADOS, urlValida, indiceVertical, insigniasDe } = require(
 const buscar = id => JUEGOS.find(juego => juego.id === id);
 const textosDe = id => insigniasDe(buscar(id)).map(insignia => insignia.texto);
 
-test('el catálogo trae los 15 enlaces activos', () => {
-  assert.equal(JUEGOS.length, 15);
+test('el catálogo trae los 8 enlaces activos', () => {
+  assert.equal(JUEGOS.length, 8);
 });
 
 test('cada entrada tiene los campos que necesita el menú', () => {
@@ -62,12 +62,19 @@ test('Brotato queda verificado, con mando y cooperativo', () => {
 });
 
 test('un juego sin probar no muestra insignias', () => {
-  assert.deepEqual(textosDe('fifa-14'), []);
+  assert.deepEqual(textosDe('guitar-hero-3'), []);
 });
 
-test('Halo 2 y Halo Online siguen sin verificar hasta aclarar cuál funcionó', () => {
-  assert.deepEqual(textosDe('halo-2'), []);
-  assert.deepEqual(textosDe('halo-online'), []);
+test('Halo 2 y Halo Online quedan verificados', () => {
+  assert.deepEqual(textosDe('halo-2'), ['Verificado']);
+  assert.deepEqual(textosDe('halo-online'), ['Verificado']);
+});
+
+test('los juegos marcados como Falla pasan a descartados', () => {
+  const urls = DESCARTADOS.map(descartado => descartado.url);
+  assert.ok(urls.includes('https://fifa14.online/'));
+  assert.ok(urls.includes('https://genizymath.github.io/iframe/205-fix2.html'));
+  assert.equal(DESCARTADOS.length, 9);
 });
 
 test('indiceVertical baja una fila en la biblioteca', () => {
