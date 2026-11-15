@@ -7,8 +7,8 @@ const { JUEGOS, DESCARTADOS, urlValida, indiceVertical, insigniasDe } = require(
 const buscar = id => JUEGOS.find(juego => juego.id === id);
 const textosDe = id => insigniasDe(buscar(id)).map(insignia => insignia.texto);
 
-test('el catálogo trae los 14 enlaces activos', () => {
-  assert.equal(JUEGOS.length, 14);
+test('el catálogo trae los 15 enlaces activos', () => {
+  assert.equal(JUEGOS.length, 15);
 });
 
 test('cada entrada tiene los campos que necesita el menú', () => {

@@ -79,6 +79,14 @@
       colores: ['#2b2b33', '#b91c1c']
     },
     {
+      id: 'guitar-hero-3',
+      titulo: 'Guitar Hero III',
+      categoria: 'Ritmo',
+      descripcion: 'Toca la guitarra al ritmo de clásicos del rock siguiendo las notas en pantalla.',
+      url: 'https://gh3.thediaryofchris.net/index.html',
+      colores: ['#5b0f0f', '#f59e0b']
+    },
+    {
       id: 'halo-2',
       titulo: 'Halo 2',
       categoria: 'Disparos',
